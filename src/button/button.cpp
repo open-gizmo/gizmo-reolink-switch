@@ -3,49 +3,73 @@
 namespace {
 	// Button configuration
 	const uint8_t buttonPin = 13;
-	const uint32_t debounceDelayMs = 50;
-	volatile bool buttonInterruptTriggered = false;
-	bool buttonReady = true;
-	uint32_t lastDebounceTimeMs = 0;
+	const uint32_t debounceDelayMs = 40;
+	const uint32_t longPressDelayMs = 700;
 
-	// Interrupt handler for button press
-	void IRAM_ATTR onButtonPress() {
-		buttonInterruptTriggered = true;
+	// Button state
+	volatile bool buttonStateChanged = false;
+	bool lastRawButtonState = HIGH;
+	bool debouncedButtonState = HIGH;
+	uint32_t lastRawStateChangeTimeMs = 0;
+	uint32_t buttonPressStartTimeMs = 0;
+	bool longPressDispatched = false;
+
+	// Interrupt handler for button state changes
+	void IRAM_ATTR onButtonStateChange() {
+		buttonStateChanged = true;
 	}
 }
 
 // Setup button
 void setupButton() {
 	pinMode(buttonPin, INPUT_PULLUP);
-	attachInterrupt(digitalPinToInterrupt(buttonPin), onButtonPress, FALLING);
+	lastRawButtonState = digitalRead(buttonPin);
+	debouncedButtonState = lastRawButtonState;
+	attachInterrupt(digitalPinToInterrupt(buttonPin), onButtonStateChange, CHANGE);
 }
 
-// Check if button was pressed
-bool wasButtonPressed() {
+// Poll the button and emit a semantic event
+ButtonEvent pollButtonEvent() {
 	const uint32_t currentTimeMs = millis();
+	const bool rawButtonState = digitalRead(buttonPin);
 
-	// Check if button is ready and debounce time has passed
-	if (!buttonReady && digitalRead(buttonPin) == HIGH && currentTimeMs - lastDebounceTimeMs >= debounceDelayMs) {
-		buttonReady = true;
-	}
-
-	// Check if interrupt was triggered
+	// Safely consume any pending interrupt signal
 	noInterrupts();
-	const bool interruptTriggered = buttonInterruptTriggered;
-	buttonInterruptTriggered = false;
+	const bool hadInterrupt = buttonStateChanged;
+	buttonStateChanged = false;
 	interrupts();
 
-	// If interrupt was triggered, update debounce time
-	if (interruptTriggered) {
-		lastDebounceTimeMs = currentTimeMs;
+	// Track raw pin changes so debounce timing starts at the first edge
+	if ((hadInterrupt || rawButtonState != lastRawButtonState) && rawButtonState != lastRawButtonState) {
+		lastRawButtonState = rawButtonState;
+		lastRawStateChangeTimeMs = currentTimeMs;
 	}
 
-	// Check if button is ready and currently pressed
-	if (buttonReady && digitalRead(buttonPin) == LOW && currentTimeMs - lastDebounceTimeMs >= debounceDelayMs) {
-		buttonReady = false;
-		return true;
+	// Promote the raw state to a debounced state once it has been stable long enough
+	if (debouncedButtonState != lastRawButtonState && currentTimeMs - lastRawStateChangeTimeMs >= debounceDelayMs) {
+		debouncedButtonState = lastRawButtonState;
+
+		if (debouncedButtonState == LOW) {
+			// Button press started
+			buttonPressStartTimeMs = currentTimeMs;
+			longPressDispatched = false;
+		} else {
+			// Button released after a short press
+			const bool shouldDispatchShortPress = !longPressDispatched && buttonPressStartTimeMs != 0;
+			buttonPressStartTimeMs = 0;
+
+			if (shouldDispatchShortPress) {
+				return ButtonEvent::ShortPress;
+			}
+		}
 	}
 
-	// Button not pressed
-	return false;
+	// Emit the long-press event once the button has been held long enough
+	if (debouncedButtonState == LOW && !longPressDispatched && buttonPressStartTimeMs != 0 && currentTimeMs - buttonPressStartTimeMs >= longPressDelayMs) {
+		longPressDispatched = true;
+		return ButtonEvent::LongPress;
+	}
+
+	// No new button event
+	return ButtonEvent::None;
 }

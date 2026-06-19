@@ -3,7 +3,13 @@
 
 #include <Arduino.h>
 
+enum class ButtonEvent : uint8_t {
+	None,
+	ShortPress,
+	LongPress,
+};
+
 void setupButton();
-bool wasButtonPressed();
+ButtonEvent pollButtonEvent();
 
 #endif
