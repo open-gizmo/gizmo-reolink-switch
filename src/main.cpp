@@ -1,3 +1,4 @@
+#include "button/button.h"
 #include "buzzer/buzzer.h"
 #include "serial/serial.h"
 
@@ -10,11 +11,17 @@ void setup() {
 	// Init buzzer
 	setupBuzzer();
 	printLogln("Buzzer initialized!");
+
+	// Init button
+	setupButton();
+	printLogln("Button initialized on GPIO13 with interrupt!");
 }
 
 // Loop
 void loop() {
-	printLogln("Buzzing for 100ms");
-	singleBuzz(100);
-	delay(900);
+	if (wasButtonPressed()) {
+		printLogln("Button pressed, buzzing for 100ms");
+		singleBuzz(100);
+		delay(20);
+	}
 }
