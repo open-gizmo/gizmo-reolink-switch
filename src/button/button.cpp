@@ -7,17 +7,11 @@ namespace {
 	const uint32_t longPressDelayMs = 700;
 
 	// Button state
-	volatile bool buttonStateChanged = false;
 	bool lastRawButtonState = HIGH;
 	bool debouncedButtonState = HIGH;
 	uint32_t lastRawStateChangeTimeMs = 0;
 	uint32_t buttonPressStartTimeMs = 0;
 	bool longPressDispatched = false;
-
-	// Interrupt handler for button state changes
-	void IRAM_ATTR onButtonStateChange() {
-		buttonStateChanged = true;
-	}
 }
 
 // Setup button
@@ -25,7 +19,7 @@ void setupButton() {
 	pinMode(buttonPin, INPUT_PULLUP);
 	lastRawButtonState = digitalRead(buttonPin);
 	debouncedButtonState = lastRawButtonState;
-	attachInterrupt(digitalPinToInterrupt(buttonPin), onButtonStateChange, CHANGE);
+	lastRawStateChangeTimeMs = millis();
 }
 
 // Poll the button and emit a semantic event
@@ -33,14 +27,8 @@ ButtonEvent pollButtonEvent() {
 	const uint32_t currentTimeMs = millis();
 	const bool rawButtonState = digitalRead(buttonPin);
 
-	// Safely consume any pending interrupt signal
-	noInterrupts();
-	const bool hadInterrupt = buttonStateChanged;
-	buttonStateChanged = false;
-	interrupts();
-
 	// Track raw pin changes so debounce timing starts at the first edge
-	if ((hadInterrupt || rawButtonState != lastRawButtonState) && rawButtonState != lastRawButtonState) {
+	if (rawButtonState != lastRawButtonState) {
 		lastRawButtonState = rawButtonState;
 		lastRawStateChangeTimeMs = currentTimeMs;
 	}

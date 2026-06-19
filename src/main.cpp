@@ -49,7 +49,7 @@ void setup() {
 
 	// Init button
 	setupButton();
-	printLogln("Button initialized on GPIO13 with interrupt!");
+	printLogln("Button initialized!");
 
 	// Init menu
 	setupMenu();
