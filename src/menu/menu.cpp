@@ -114,6 +114,11 @@ bool isTimerRunning() {
 	return timerRunning;
 }
 
+// Get the current countdown value in seconds
+uint32_t getRemainingSeconds() {
+	return timerRunning ? lastDisplayedRemainingSeconds : 0;
+}
+
 // Get the current timer status text
 const char *getMenuDisplayText() {
 	return menuDisplayText;

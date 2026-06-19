@@ -17,6 +17,7 @@ MenuEvent increaseSelectedDuration();
 MenuEvent activateOrCancelTimer();
 MenuEvent updateMenu();
 bool isTimerRunning();
+uint32_t getRemainingSeconds();
 const char *getMenuDisplayText();
 
 #endif

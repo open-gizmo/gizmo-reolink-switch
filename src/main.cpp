@@ -28,6 +28,12 @@ namespace {
 			// Handle a countdown timer tick
 			case MenuEvent::TimerTick:
 				printMenuStatus();
+
+				// Provide a short buzz when the timer is about to complete
+				if (getRemainingSeconds() == 2 || getRemainingSeconds() == 1) {
+					singleBuzz(120);
+				}
+
 				break;
 
 			// Handle the completion of a countdown timer
