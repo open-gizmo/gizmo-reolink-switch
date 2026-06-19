@@ -4,32 +4,67 @@
 #include "serial/serial.h"
 
 namespace {
-	// Print the current menu item label to the serial console
-	void printCurrentMenuItem() {
-		printLogf("Current menu item: %s\n", getCurrentMenuItemLabel());
+	// Print the current timer state to the serial console
+	void printMenuStatus() {
+		printLogf("%s\n", getMenuDisplayText());
 	}
 
-	// Handle the selected menu item action
-	void handleMenuSelection() {
-		printLogf("Selected menu item: %s\n", getCurrentMenuItemLabel());
-		singleBuzz(120);
-		delay(60);
-		singleBuzz(120);
+	// React to timer menu events with logging and buzzer feedback
+	void handleMenuEvent(MenuEvent event) {
+		switch (event) {
+			// Handle a selection change
+			case MenuEvent::SelectionChanged:
+				printMenuStatus();
+				singleBuzz(40);
+				break;
+
+			// Handle the start of a countdown timer
+			case MenuEvent::TimerStarted:
+				printLogln("Timer started");
+				printMenuStatus();
+				singleBuzz(1000);
+				break;
+
+			// Handle a countdown timer tick
+			case MenuEvent::TimerTick:
+				printMenuStatus();
+				break;
+
+			// Handle the completion of a countdown timer
+			case MenuEvent::TimerCompleted:
+				printLogln("Timer completed. Returning to idle state.");
+				printMenuStatus();
+				singleBuzz(1000);
+				break;
+
+			// Handle the cancellation of a countdown timer
+			case MenuEvent::TimerCancelled:
+				printLogln("Timer cancelled. Returning to idle state.");
+				printMenuStatus();
+				singleBuzz(1000);
+				break;
+
+			// Handle no event
+			case MenuEvent::None:
+			default:
+				break;
+		}
 	}
 
 	// Handle a button event by performing the corresponding action
 	void handleButtonEvent(ButtonEvent event) {
 		switch (event) {
+			// Handle a short button press
 			case ButtonEvent::ShortPress:
-				moveToNextMenuItem();
-				printCurrentMenuItem();
-				singleBuzz(40);
+				handleMenuEvent(increaseSelectedDuration());
 				break;
 
+			// Handle a long button press
 			case ButtonEvent::LongPress:
-				handleMenuSelection();
+				handleMenuEvent(activateOrCancelTimer());
 				break;
 
+			// Handle no event
 			case ButtonEvent::None:
 			default:
 				break;
@@ -54,17 +89,21 @@ void setup() {
 	// Init menu
 	setupMenu();
 	printLogln("Menu initialized!");
-	printLogln("Short press: next item");
-	printLogln("Long press: select item");
-	printCurrentMenuItem();
+	printLogln("Short press: add 1 minute below 5 minutes, otherwise add 5 minutes");
+	printLogln("Long press: start or cancel timer");
+	printMenuStatus();
 }
 
 // Loop
 void loop() {
+	// Poll the button for events
 	const ButtonEvent buttonEvent = pollButtonEvent();
 
 	// Handle any button event
 	if (buttonEvent != ButtonEvent::None) {
 		handleButtonEvent(buttonEvent);
 	}
+
+	// Update the menu state and handle any events
+	handleMenuEvent(updateMenu());
 }
