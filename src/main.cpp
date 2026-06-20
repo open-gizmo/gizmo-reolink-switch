@@ -1,5 +1,6 @@
 #include "button/button.h"
 #include "buzzer/buzzer.h"
+#include "config/config.h"
 #include "menu/menu.h"
 #include "serial/serial.h"
 
@@ -15,14 +16,14 @@ namespace {
 			// Handle a selection change
 			case MenuEvent::SelectionChanged:
 				printMenuStatus();
-				singleBuzz(40);
+				singleBuzz(config::MENU_SELECTION_BUZZ_DURATION_MS);
 				break;
 
 			// Handle the start of a countdown timer
 			case MenuEvent::TimerStarted:
 				printLogln("Timer started");
 				printMenuStatus();
-				singleBuzz(1000);
+				singleBuzz(config::TIMER_START_BUZZ_DURATION_MS);
 				break;
 
 			// Handle a countdown timer tick
@@ -31,7 +32,7 @@ namespace {
 
 				// Provide a short buzz when the timer is about to complete
 				if (getRemainingSeconds() == 2 || getRemainingSeconds() == 1) {
-					singleBuzz(120);
+					singleBuzz(config::TIMER_WARNING_BUZZ_DURATION_MS);
 				}
 
 				break;
@@ -40,14 +41,14 @@ namespace {
 			case MenuEvent::TimerCompleted:
 				printLogln("Timer completed. Returning to idle state.");
 				printMenuStatus();
-				singleBuzz(1000);
+				singleBuzz(config::TIMER_FINISH_BUZZ_DURATION_MS);
 				break;
 
 			// Handle the cancellation of a countdown timer
 			case MenuEvent::TimerCancelled:
 				printLogln("Timer cancelled. Returning to idle state.");
 				printMenuStatus();
-				singleBuzz(1000);
+				singleBuzz(config::TIMER_FINISH_BUZZ_DURATION_MS);
 				break;
 
 			// Handle no event

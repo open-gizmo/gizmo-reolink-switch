@@ -1,18 +1,15 @@
+#include "config/config.h"
 #include "buzzer.h"
-
-namespace {
-	const uint8_t buzzerPin = 12;
-}
 
 // Setup buzzer
 void setupBuzzer() {
-	pinMode(buzzerPin, OUTPUT);
-	digitalWrite(buzzerPin, LOW);
+	pinMode(config::BUZZER_PIN, OUTPUT);
+	digitalWrite(config::BUZZER_PIN, LOW);
 }
 
 // Single buzz
 void singleBuzz(uint32_t durationMs) {
-	digitalWrite(buzzerPin, HIGH);
+	digitalWrite(config::BUZZER_PIN, HIGH);
 	delay(durationMs);
-	digitalWrite(buzzerPin, LOW);
+	digitalWrite(config::BUZZER_PIN, LOW);
 }

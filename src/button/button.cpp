@@ -1,11 +1,7 @@
+#include "config/config.h"
 #include "button.h"
 
 namespace {
-	// Button configuration
-	const uint8_t buttonPin = 13;
-	const uint32_t debounceDelayMs = 40;
-	const uint32_t longPressDelayMs = 700;
-
 	// Button state
 	bool lastRawButtonState = HIGH;
 	bool debouncedButtonState = HIGH;
@@ -16,8 +12,8 @@ namespace {
 
 // Setup button
 void setupButton() {
-	pinMode(buttonPin, INPUT_PULLUP);
-	lastRawButtonState = digitalRead(buttonPin);
+	pinMode(config::BUTTON_PIN, INPUT_PULLUP);
+	lastRawButtonState = digitalRead(config::BUTTON_PIN);
 	debouncedButtonState = lastRawButtonState;
 	lastRawStateChangeTimeMs = millis();
 }
@@ -25,7 +21,7 @@ void setupButton() {
 // Poll the button and emit a semantic event
 ButtonEvent pollButtonEvent() {
 	const uint32_t currentTimeMs = millis();
-	const bool rawButtonState = digitalRead(buttonPin);
+	const bool rawButtonState = digitalRead(config::BUTTON_PIN);
 
 	// Track raw pin changes so debounce timing starts at the first edge
 	if (rawButtonState != lastRawButtonState) {
@@ -34,7 +30,7 @@ ButtonEvent pollButtonEvent() {
 	}
 
 	// Promote the raw state to a debounced state once it has been stable long enough
-	if (debouncedButtonState != lastRawButtonState && currentTimeMs - lastRawStateChangeTimeMs >= debounceDelayMs) {
+	if (debouncedButtonState != lastRawButtonState && currentTimeMs - lastRawStateChangeTimeMs >= config::BUTTON_DEBOUNCE_DELAY_MS) {
 		debouncedButtonState = lastRawButtonState;
 
 		if (debouncedButtonState == LOW) {
@@ -53,7 +49,7 @@ ButtonEvent pollButtonEvent() {
 	}
 
 	// Emit the long-press event once the button has been held long enough
-	if (debouncedButtonState == LOW && !longPressDispatched && buttonPressStartTimeMs != 0 && currentTimeMs - buttonPressStartTimeMs >= longPressDelayMs) {
+	if (debouncedButtonState == LOW && !longPressDispatched && buttonPressStartTimeMs != 0 && currentTimeMs - buttonPressStartTimeMs >= config::BUTTON_LONG_PRESS_DELAY_MS) {
 		longPressDispatched = true;
 		return ButtonEvent::LongPress;
 	}

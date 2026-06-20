@@ -1,10 +1,7 @@
+#include "config/config.h"
 #include "menu.h"
 
 namespace {
-	// Timer configuration
-	const uint32_t shortDurationStepSeconds = 1UL * 60UL;
-	const uint32_t longDurationStepSeconds = 5UL * 60UL;
-	const uint32_t shortDurationLimitSeconds = 5UL * 60UL;
 	char menuDisplayText[64] = "Selected duration: 0:00";
 
 	// Timer state
@@ -45,7 +42,7 @@ MenuEvent increaseSelectedDuration() {
 	}
 
 	// Determine the step size based on the current selected duration
-	const uint32_t durationStepSeconds = selectedDurationSeconds < shortDurationLimitSeconds ? shortDurationStepSeconds : longDurationStepSeconds;
+	const uint32_t durationStepSeconds = selectedDurationSeconds < config::TIMER_SHORT_DURATION_LIMIT_SECONDS ? config::TIMER_SHORT_DURATION_STEP_SECONDS : config::TIMER_LONG_DURATION_STEP_SECONDS;
 
 	// Increase the selected duration and update the display
 	selectedDurationSeconds += durationStepSeconds;
