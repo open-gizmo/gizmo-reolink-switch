@@ -2,6 +2,7 @@
 #include "button/button.h"
 #include "buzzer/buzzer.h"
 #include "menu/menu.h"
+#include "reolink/reolink.h"
 #include "serial/serial.h"
 #include "wifi/wifi.h"
 
@@ -25,6 +26,14 @@ namespace {
 
 			// Handle the start of a countdown timer
 			case MenuEvent::TimerStarted:
+				// Attempt to disable Reolink notifications and recording when the timer starts
+				if (!disableReolinkNotificationsAndRecording()) {
+					printLogln("Failed to disable Reolink notifications and recording. Cancelling timer start.");
+					handleMenuEvent(activateOrCancelTimer());
+					break;
+				}
+
+				// Start the timer and provide feedback
 				printLogln("Timer started");
 				printMenuStatus();
 				singleBuzz(config::TIMER_START_BUZZ_DURATION_MS);
@@ -43,6 +52,12 @@ namespace {
 
 			// Handle the completion of a countdown timer
 			case MenuEvent::TimerCompleted:
+				// Attempt to restore Reolink notifications and recording when the timer completes
+				if (!restoreReolinkNotificationsAndRecording()) {
+					printLogln("Failed to restore Reolink notifications and recording after timer completion.");
+				}
+
+				// Finish the timer and return to idle state
 				printLogln("Timer completed. Returning to idle state.");
 				printMenuStatus();
 				singleBuzz(config::TIMER_FINISH_BUZZ_DURATION_MS);
@@ -50,6 +65,12 @@ namespace {
 
 			// Handle the cancellation of a countdown timer
 			case MenuEvent::TimerCancelled:
+				// Attempt to restore Reolink notifications and recording when the timer is cancelled
+				if (!restoreReolinkNotificationsAndRecording()) {
+					printLogln("Failed to restore Reolink notifications and recording after cancellation.");
+				}
+
+				// Cancel the timer and return to idle state
 				printLogln("Timer cancelled. Returning to idle state.");
 				printMenuStatus();
 				singleBuzz(config::TIMER_FINISH_BUZZ_DURATION_MS);
@@ -100,6 +121,13 @@ void setup() {
 	// Connect WiFi
 	if (setupWiFi() == WiFiSetupResult::MissingCredentials) {
 		printLogln("Program halted. Configure WiFi credentials and reboot.");
+		programIsIdle = true;
+		return;
+	}
+
+	// Configure Reolink API
+	if (setupReolink() == ReolinkSetupResult::MissingCredentials) {
+		printLogln("Program halted. Configure Reolink credentials and reboot.");
 		programIsIdle = true;
 		return;
 	}

@@ -15,10 +15,16 @@ namespace config {
 	extern const char WIFI_SSID[];
 	extern const char WIFI_PASSWORD[];
 
+	// Reolink credentials
+	extern const char REOLINK_HOST[];
+	extern const char REOLINK_USERNAME[];
+	extern const char REOLINK_PASSWORD[];
+
 	// Timing constants
 	extern const uint32_t BUTTON_DEBOUNCE_DELAY_MS;
 	extern const uint32_t BUTTON_LONG_PRESS_DELAY_MS;
 	extern const uint32_t WIFI_CONNECT_RETRY_DELAY_MS;
+	extern const uint32_t REOLINK_HTTP_TIMEOUT_MS;
 
 	// Timer duration constants
 	extern const uint32_t TIMER_SHORT_DURATION_STEP_SECONDS;
@@ -30,6 +36,9 @@ namespace config {
 	extern const uint32_t TIMER_START_BUZZ_DURATION_MS;
 	extern const uint32_t TIMER_WARNING_BUZZ_DURATION_MS;
 	extern const uint32_t TIMER_FINISH_BUZZ_DURATION_MS;
+
+	// Reolink constants
+	extern const uint8_t REOLINK_MAX_CHANNELS;
 }
 
 #endif

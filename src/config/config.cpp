@@ -8,6 +8,18 @@
 #define PIO_WIFI_PASSWORD ""
 #endif
 
+#ifndef PIO_REOLINK_HOST
+#define PIO_REOLINK_HOST ""
+#endif
+
+#ifndef PIO_REOLINK_USERNAME
+#define PIO_REOLINK_USERNAME ""
+#endif
+
+#ifndef PIO_REOLINK_PASSWORD
+#define PIO_REOLINK_PASSWORD ""
+#endif
+
 #ifndef PIO_DEV_MODE
 #define PIO_DEV_MODE 0
 #endif
@@ -24,10 +36,16 @@ namespace config {
 	const char WIFI_SSID[] = PIO_WIFI_SSID;
 	const char WIFI_PASSWORD[] = PIO_WIFI_PASSWORD;
 
+	// Reolink credentials
+	const char REOLINK_HOST[] = PIO_REOLINK_HOST;
+	const char REOLINK_USERNAME[] = PIO_REOLINK_USERNAME;
+	const char REOLINK_PASSWORD[] = PIO_REOLINK_PASSWORD;
+
 	// Timing constants
 	const uint32_t BUTTON_DEBOUNCE_DELAY_MS = 40;
 	const uint32_t BUTTON_LONG_PRESS_DELAY_MS = 700;
 	const uint32_t WIFI_CONNECT_RETRY_DELAY_MS = 500;
+	const uint32_t REOLINK_HTTP_TIMEOUT_MS = 10000;
 
 	// Timer duration constants
 	const uint32_t TIMER_SHORT_DURATION_STEP_SECONDS = 1UL * 60UL;
@@ -39,4 +57,5 @@ namespace config {
 	const uint32_t TIMER_START_BUZZ_DURATION_MS = 1000;
 	const uint32_t TIMER_WARNING_BUZZ_DURATION_MS = 120;
 	const uint32_t TIMER_FINISH_BUZZ_DURATION_MS = 1000;
+	const uint8_t REOLINK_MAX_CHANNELS = 16;
 }
