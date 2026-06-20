@@ -26,6 +26,9 @@ namespace {
 
 			// Handle the start of a countdown timer
 			case MenuEvent::TimerStarted:
+				// Additional feedback
+				singleBuzz(config::MENU_SELECTION_BUZZ_DURATION_MS);
+
 				// Attempt to disable Reolink notifications and recording when the timer starts
 				if (!disableReolinkNotificationsAndRecording()) {
 					printLogln("Failed to disable Reolink notifications and recording. Cancelling timer start.");
@@ -65,6 +68,9 @@ namespace {
 
 			// Handle the cancellation of a countdown timer
 			case MenuEvent::TimerCancelled:
+				// Additional feedback
+				singleBuzz(config::MENU_SELECTION_BUZZ_DURATION_MS);
+
 				// Attempt to restore Reolink notifications and recording when the timer is cancelled
 				if (!restoreReolinkNotificationsAndRecording()) {
 					printLogln("Failed to restore Reolink notifications and recording after cancellation.");

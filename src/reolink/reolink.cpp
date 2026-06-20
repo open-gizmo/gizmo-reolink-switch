@@ -67,12 +67,19 @@ namespace {
 		return static_cast<int32_t>(millis() - tokenExpiryTimeMs) >= 0;
 	}
 
-	// Send one HTTPS API request to a fully built URL and parse the standard Reolink envelope
-	bool sendReolinkRequest(const String &url, const char *command, JsonVariantConst params, JsonDocument &responseDoc, int &responseCode) {
+	// Append one API command to a request array
+	void appendApiRequest(JsonArray requestArray, const char *command, JsonVariantConst params) {
+		JsonObject requestObject = requestArray.add<JsonObject>();
+		requestObject["cmd"] = command;
+		requestObject["action"] = 0;
+		requestObject["param"] = params;
+	}
+
+	// Send one HTTPS API request with a prebuilt JSON array body and parse the standard Reolink envelope
+	bool sendReolinkRequest(const String &url, const char *command, JsonDocument &requestDoc, JsonDocument &responseDoc, int &responseCode) {
 		// Reolink NVRs commonly use self-signed HTTPS certificates
 		WiFiClientSecure secureClient;
 		secureClient.setInsecure();
-
 		HTTPClient http;
 
 		// Open the HTTP connection to the Reolink API endpoint
@@ -85,14 +92,6 @@ namespace {
 		// Set the HTTP timeout and content type for the request
 		http.setTimeout(config::REOLINK_HTTP_TIMEOUT_MS);
 		http.addHeader("Content-Type", "application/json");
-
-		// Build the JSON request body with the command, action, and parameters
-		JsonDocument requestDoc;
-		JsonArray requestArray = requestDoc.to<JsonArray>();
-		JsonObject requestObject = requestArray.add<JsonObject>();
-		requestObject["cmd"] = command;
-		requestObject["action"] = 0;
-		requestObject["param"] = params;
 
 		// The API expects a JSON array even for a single command
 		String requestBody;
@@ -128,25 +127,28 @@ namespace {
 			return false;
 		}
 
-		// Get the first element of the response array
-		JsonObject result = responseDoc[0];
+		// Get the results array
+		JsonArray results = responseDoc.as<JsonArray>();
 
-		// Check if the result is null or missing
-		if (result.isNull()) {
+		// Check if the results array is empty or null, which indicates an error
+		if (results.isNull() || results.size() == 0) {
 			printLogfln("Reolink: empty API result for %s", command);
 			responseCode = -1;
 			return false;
 		}
 
-		// Extract the result code and response code from the API result
-		const int resultCode = result["code"] | -1;
-		responseCode = result["error"]["rspCode"] | resultCode;
+		// Iterate through the results and check for errors in each command response
+		for (JsonObject result : results) {
+			const int resultCode = result["code"] | -1;
+			responseCode = result["error"]["rspCode"] | resultCode;
 
-		// Check if the API result indicates an error
-		if (resultCode != 0) {
-			const char *detail = result["error"]["detail"] | "unknown error";
-			printLogfln("Reolink: %s failed: %s", command, detail);
-			return false;
+			// If the result code is not zero, log the failed command and its error detail
+			if (resultCode != 0) {
+				const char *failedCommand = result["cmd"] | command;
+				const char *detail = result["error"]["detail"] | "unknown error";
+				printLogfln("Reolink: %s failed: %s", failedCommand, detail);
+				return false;
+			}
 		}
 
 		// If we reach this point, the API call was successful, and we can return true
@@ -157,7 +159,12 @@ namespace {
 	// Log in once and cache the returned token for later API calls
 	bool loginReolink() {
 		// Create a JSON document with the login parameters
-		JsonDocument paramsDoc;
+		JsonDocument requestDoc;
+		JsonArray requestArray = requestDoc.to<JsonArray>();
+		JsonObject requestObject = requestArray.add<JsonObject>();
+		requestObject["cmd"] = "Login";
+		requestObject["action"] = 0;
+		JsonObject paramsDoc = requestObject["param"].to<JsonObject>();
 		JsonObject userObject = paramsDoc["User"].to<JsonObject>();
 		userObject["userName"] = config::REOLINK_USERNAME;
 		userObject["password"] = config::REOLINK_PASSWORD;
@@ -168,7 +175,7 @@ namespace {
 		const String loginUrl = buildApiUrl("Login", "token", "null");
 
 		// Send the login request and check for errors
-		if (!sendReolinkRequest(loginUrl, "Login", paramsDoc.as<JsonVariantConst>(), responseDoc, responseCode)) {
+		if (!sendReolinkRequest(loginUrl, "Login", requestDoc, responseDoc, responseCode)) {
 			sessionToken = "";
 			tokenExpiryTimeMs = 0;
 			return false;
@@ -203,8 +210,8 @@ namespace {
 		return loginReolink();
 	}
 
-	// Send a token-authenticated Reolink API call and retry once on auth failure
-	bool callReolinkApi(const char *command, JsonVariantConst params, JsonDocument &responseDoc) {
+	// Send one prepared request document with token auth and retry once on auth failure
+	bool executeReolinkRequest(const char *command, JsonDocument &requestDoc, JsonDocument &responseDoc) {
 		// Ensure a valid session token is available before making the API call
 		if (!ensureReolinkToken()) {
 			printLogln("Reolink: unable to acquire a session token.");
@@ -216,7 +223,7 @@ namespace {
 		String url = buildApiUrl(command, "token", sessionToken.c_str());
 
 		// Send the API request and check for errors
-		if (sendReolinkRequest(url, command, params, responseDoc, responseCode)) {
+		if (sendReolinkRequest(url, command, requestDoc, responseDoc, responseCode)) {
 			return true;
 		}
 
@@ -235,7 +242,15 @@ namespace {
 
 		// Retry the API call with the new session token
 		url = buildApiUrl(command, "token", sessionToken.c_str());
-		return sendReolinkRequest(url, command, params, responseDoc, responseCode);
+		return sendReolinkRequest(url, command, requestDoc, responseDoc, responseCode);
+	}
+
+	// Send a token-authenticated Reolink API call and retry once on auth failure
+	bool callReolinkApi(const char *command, JsonVariantConst params, JsonDocument &responseDoc) {
+		JsonDocument requestDoc;
+		JsonArray requestArray = requestDoc.to<JsonArray>();
+		appendApiRequest(requestArray, command, params);
+		return executeReolinkRequest(command, requestDoc, responseDoc);
 	}
 
 	// Query the NVR and keep only currently online channels
@@ -268,63 +283,63 @@ namespace {
 		return channelCount > 0;
 	}
 
-	// Send a minimal push notification payload for one channel
-	bool setChannelPushEnabled(uint8_t channel, bool enabled) {
-		// Create a JSON document for the request parameters
-		JsonDocument paramsDoc;
-		JsonObject pushObject = paramsDoc["Push"].to<JsonObject>();
+	// Append one channel's push and recording commands to a shared batch request
+	void appendChannelMuteRequests(JsonArray requestArray, uint8_t channel, bool enabled) {
+		// Create the JSON parameters for the push notification command for this channel
+		JsonDocument pushParamsDoc;
+		JsonObject pushParams = pushParamsDoc.to<JsonObject>();
+		JsonObject pushObject = pushParams["Push"].to<JsonObject>();
 		pushObject["channel"] = channel;
 		pushObject["enable"] = enabled ? 1 : 0;
 		pushObject["scheduleEnable"] = enabled ? 1 : 0;
+		appendApiRequest(requestArray, "SetPushV20", pushParams);
 
-		// Create a JSON document for the response
-		JsonDocument responseDoc;
-
-		// Call the Reolink API to set the push notification state and return the result
-		return callReolinkApi("SetPushV20", paramsDoc.as<JsonVariantConst>(), responseDoc);
-	}
-
-	// Send a minimal recording payload for one channel
-	bool setChannelRecordingEnabled(uint8_t channel, bool enabled) {
-		// Create a JSON document for the request parameters
-		JsonDocument paramsDoc;
-		JsonObject recObject = paramsDoc["Rec"].to<JsonObject>();
+		// Create the JSON parameters for the recording command for this channel
+		JsonDocument recParamsDoc;
+		JsonObject recParams = recParamsDoc.to<JsonObject>();
+		JsonObject recObject = recParams["Rec"].to<JsonObject>();
 		recObject["channel"] = channel;
 		recObject["enable"] = enabled ? 1 : 0;
 		recObject["scheduleEnable"] = enabled ? 1 : 0;
+		appendApiRequest(requestArray, "SetRecV20", recParams);
+	}
+
+	// Apply the requested notification and recording state to all active channels in a single batch
+	bool applyReolinkNotificationsAndRecordingState(bool enabled) {
+		uint8_t channels[config::REOLINK_MAX_CHANNELS] = {0};
+		uint8_t channelCount = 0;
+
+		// Get the list of currently active channels from the NVR
+		if (!getActiveChannels(channels, channelCount)) {
+			printLogln("Reolink: failed to retrieve active channels.");
+			return false;
+		}
+
+		// Get the response code from the API
+		JsonDocument requestDoc;
+		JsonArray requestArray = requestDoc.to<JsonArray>();
+
+		// Append the mute requests for each active channel to the batch request
+		for (uint8_t index = 0; index < channelCount; index += 1) {
+			appendChannelMuteRequests(requestArray, channels[index], enabled);
+		}
+
+		// Log the batch request and send it to the Reolink API
+		printLogfln("Reolink: sending batch request to turn %s notifications and recording for %u active channels...", enabled ? "on" : "off", channelCount);
 
 		// Create a JSON document for the response
 		JsonDocument responseDoc;
 
-		// Call the Reolink API to set the recording state and return the result
-		return callReolinkApi("SetRecV20", paramsDoc.as<JsonVariantConst>(), responseDoc);
-	}
-
-	// Apply the same on or off state to both notifications and recording for one channel
-	bool setChannelMuteState(uint8_t channel, bool enabled) {
-		// Log the intended state change for the channel
-		printLogfln("Reolink: setting channel %u push notifications %s...", channel, enabled ? "on" : "off");
-
-		// Set the push notification state for the channel
-		if (!setChannelPushEnabled(channel, enabled)) {
+		// Send the batch request to the Reolink API and check for errors
+		if (!executeReolinkRequest("SetPushV20", requestDoc, responseDoc)) {
+			printLogfln("Reolink: failed to %s notifications and recording.", enabled ? "restore" : "disable");
 			return false;
 		}
 
-		// Log successful notification state change before attempting to set the recording state
-		printLogfln("Reolink: channel %u push notifications %s!", channel, enabled ? "enabled" : "disabled");
+		// Log the successful batch request and return true
+		printLogfln("Reolink: batch request sent successfully. Notifications and recording are now %s for %u active channels.", enabled ? "enabled" : "disabled", channelCount);
 
-		// Log the intended recording state change for the channel
-		printLogfln("Reolink: setting channel %u recording %s...", channel, enabled ? "on" : "off");
-
-		// Set the recording state for the channel
-		if (!setChannelRecordingEnabled(channel, enabled)) {
-			return false;
-		}
-
-		// Log successful recording state change
-		printLogfln("Reolink: channel %u recording %s!", channel, enabled ? "enabled" : "disabled");
-
-		// All OK, the channel state has been updated successfully
+		// All OK, return true
 		return true;
 	}
 }
@@ -354,21 +369,9 @@ bool disableReolinkNotificationsAndRecording() {
 		return false;
 	}
 
-	uint8_t channels[config::REOLINK_MAX_CHANNELS] = {0};
-	uint8_t channelCount = 0;
-
-	// Get the list of currently active channels from the NVR
-	if (!getActiveChannels(channels, channelCount)) {
-		printLogln("Reolink: failed to retrieve active channels.");
+	// Attempt to apply the disabled state to all active channels and check for errors
+	if (!applyReolinkNotificationsAndRecordingState(false)) {
 		return false;
-	}
-
-	// Force notifications and recording off for every active channel
-	for (uint8_t index = 0; index < channelCount; index += 1) {
-		if (!setChannelMuteState(channels[index], false)) {
-			printLogfln("Reolink: failed to disable channel %u", channels[index]);
-			return false;
-		}
 	}
 
 	// All OK, notifications and recording are now disabled
@@ -384,21 +387,9 @@ bool restoreReolinkNotificationsAndRecording() {
 		return false;
 	}
 
-	uint8_t channels[config::REOLINK_MAX_CHANNELS] = {0};
-	uint8_t channelCount = 0;
-
-	// Get the list of currently active channels from the NVR
-	if (!getActiveChannels(channels, channelCount)) {
-		printLogln("Reolink: failed to retrieve active channels for restore.");
+	// Attempt to apply the enabled state to all active channels and check for errors
+	if (!applyReolinkNotificationsAndRecordingState(true)) {
 		return false;
-	}
-
-	// Force notifications and recording back on for every active channel
-	for (uint8_t index = 0; index < channelCount; index += 1) {
-		if (!setChannelMuteState(channels[index], true)) {
-			printLogfln("Reolink: failed to restore channel %u", channels[index]);
-			return false;
-		}
 	}
 
 	// All OK, notifications and recording are now restored
