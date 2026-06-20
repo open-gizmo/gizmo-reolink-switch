@@ -1,10 +1,14 @@
+#include "config/config.h"
 #include "button/button.h"
 #include "buzzer/buzzer.h"
-#include "config/config.h"
 #include "menu/menu.h"
 #include "serial/serial.h"
+#include "wifi/wifi.h"
 
 namespace {
+	// If the program is in an idle state where it cannot operate
+	bool programIsIdle = false;
+
 	// Print the current timer state to the serial console
 	void printMenuStatus() {
 		printLogf("%s\n", getMenuDisplayText());
@@ -93,6 +97,13 @@ void setup() {
 	setupButton();
 	printLogln("Button initialized!");
 
+	// Connect WiFi
+	if (setupWiFi() == WiFiSetupResult::MissingCredentials) {
+		printLogln("Program halted. Configure WiFi credentials and reboot.");
+		programIsIdle = true;
+		return;
+	}
+
 	// Init menu
 	setupMenu();
 	printLogln("Menu initialized!");
@@ -103,6 +114,12 @@ void setup() {
 
 // Loop
 void loop() {
+	// If the program is idle, do nothing
+	if (programIsIdle) {
+		delay(1000);
+		return;
+	}
+
 	// Poll the button for events
 	const ButtonEvent buttonEvent = pollButtonEvent();
 
