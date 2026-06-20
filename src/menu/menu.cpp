@@ -111,6 +111,11 @@ bool isTimerRunning() {
 	return timerRunning;
 }
 
+// Get the currently selected timer duration in seconds while idle
+uint32_t getSelectedDurationSeconds() {
+	return selectedDurationSeconds;
+}
+
 // Get the current countdown value in seconds
 uint32_t getRemainingSeconds() {
 	return timerRunning ? lastDisplayedRemainingSeconds : 0;

@@ -5,12 +5,18 @@
 #include <WiFiClientSecure.h>
 
 #include "config/config.h"
+#include "display/display.h"
 #include "serial/serial.h"
 
 namespace {
 	// Keep the current session token and its expiry time in memory
 	String sessionToken;
 	uint32_t tokenExpiryTimeMs = 0;
+
+	// Show a short user-friendly NVR status on the LCD
+	void showReolinkStatus(const char *line1, const char *line2) {
+		displayShowScreen(line1, line2);
+	}
 
 	// Check whether all required Reolink credentials are configured
 	bool hasReolinkCredentials() {
@@ -85,6 +91,7 @@ namespace {
 		// Open the HTTP connection to the Reolink API endpoint
 		if (!http.begin(secureClient, url)) {
 			printLogfln("Reolink: failed to open HTTP client for %s", command);
+			showReolinkStatus("NVR Link Error", "Check network");
 			responseCode = -1;
 			return false;
 		}
@@ -105,6 +112,7 @@ namespace {
 		// Check for HTTP errors
 		if (statusCode <= 0) {
 			printLogfln("Reolink: HTTP request failed for %s (code %d)", command, statusCode);
+			showReolinkStatus("NVR Link Error", "Check network");
 			responseCode = statusCode;
 			return false;
 		}
@@ -113,6 +121,7 @@ namespace {
 		if (statusCode < 200 || statusCode >= 300) {
 			printLogfln("Reolink: HTTP status %d for %s", statusCode, command);
 			printLogfln("Reolink response: %s", responseBody.c_str());
+			showReolinkStatus("NVR Busy", "Try again");
 			responseCode = statusCode;
 			return false;
 		}
@@ -123,6 +132,7 @@ namespace {
 		// Check for JSON parsing errors
 		if (jsonError) {
 			printLogfln("Reolink: failed to parse JSON for %s: %s", command, jsonError.c_str());
+			showReolinkStatus("NVR Reply Err", "Try again");
 			responseCode = -1;
 			return false;
 		}
@@ -133,6 +143,7 @@ namespace {
 		// Check if the results array is empty or null, which indicates an error
 		if (results.isNull() || results.size() == 0) {
 			printLogfln("Reolink: empty API result for %s", command);
+			showReolinkStatus("NVR Reply Err", "Empty answer");
 			responseCode = -1;
 			return false;
 		}
@@ -147,6 +158,7 @@ namespace {
 				const char *failedCommand = result["cmd"] | command;
 				const char *detail = result["error"]["detail"] | "unknown error";
 				printLogfln("Reolink: %s failed: %s", failedCommand, detail);
+				showReolinkStatus("NVR Command Err", "Try again");
 				return false;
 			}
 		}
@@ -188,6 +200,7 @@ namespace {
 		// If the token name is empty, treat it as a failed login and clear the session token
 		if (tokenName[0] == '\0') {
 			printLogln("Reolink: login succeeded but returned no token.");
+			showReolinkStatus("NVR Login Err", "Token missing");
 			sessionToken = "";
 			tokenExpiryTimeMs = 0;
 			return false;
@@ -215,6 +228,7 @@ namespace {
 		// Ensure a valid session token is available before making the API call
 		if (!ensureReolinkToken()) {
 			printLogln("Reolink: unable to acquire a session token.");
+			showReolinkStatus("NVR Login Err", "Check login");
 			return false;
 		}
 
@@ -234,6 +248,7 @@ namespace {
 
 		// Log that the session has expired and attempt to log in again
 		printLogln("Reolink: session expired, logging in again.");
+		showReolinkStatus("NVR Reconnect", "Please wait");
 
 		// Attempt to log in again to acquire a new session token
 		if (!loginReolink()) {
@@ -312,6 +327,7 @@ namespace {
 		// Get the list of currently active channels from the NVR
 		if (!getActiveChannels(channels, channelCount)) {
 			printLogln("Reolink: failed to retrieve active channels.");
+			showReolinkStatus("No Cameras", "Check NVR");
 			return false;
 		}
 
@@ -326,6 +342,7 @@ namespace {
 
 		// Log the batch request and send it to the Reolink API
 		printLogfln("Reolink: sending batch request to turn %s notifications and recording for %u active channels...", enabled ? "on" : "off", channelCount);
+		showReolinkStatus(enabled ? "Quiet Mode OFF" : "Quiet Mode ON", enabled ? "Restoring alerts" : "Muting cameras");
 
 		// Create a JSON document for the response
 		JsonDocument responseDoc;
@@ -333,11 +350,13 @@ namespace {
 		// Send the batch request to the Reolink API and check for errors
 		if (!executeReolinkRequest("SetPushV20", requestDoc, responseDoc)) {
 			printLogfln("Reolink: failed to %s notifications and recording.", enabled ? "restore" : "disable");
+			showReolinkStatus("Camera Sync Fail", "Try again");
 			return false;
 		}
 
 		// Log the successful batch request and return true
 		printLogfln("Reolink: batch request sent successfully. Notifications and recording are now %s for %u active channels.", enabled ? "enabled" : "disabled", channelCount);
+		showReolinkStatus(enabled ? "Alerts Restored" : "Cameras Muted", enabled ? "Welcome back" : "Exit safely");
 
 		// All OK, return true
 		return true;
@@ -349,6 +368,7 @@ ReolinkSetupResult setupReolink() {
 	// Check if the required Reolink credentials are configured
 	if (!hasReolinkCredentials()) {
 		printLogln("Reolink credentials are not configured.");
+		showReolinkStatus("NVR Needed", "Add credentials");
 		return ReolinkSetupResult::MissingCredentials;
 	}
 
@@ -358,6 +378,7 @@ ReolinkSetupResult setupReolink() {
 
 	// All OK, return Ready if the credentials are present
 	printLogln("Reolink configured.");
+	showReolinkStatus("NVR Linked", "Ready to mute");
 	return ReolinkSetupResult::Ready;
 }
 
@@ -366,6 +387,7 @@ bool disableReolinkNotificationsAndRecording() {
 	// Refuse to run if the feature was not configured
 	if (!hasReolinkCredentials()) {
 		printLogln("Reolink disable skipped because credentials are missing.");
+		showReolinkStatus("NVR Needed", "Add credentials");
 		return false;
 	}
 
@@ -376,6 +398,7 @@ bool disableReolinkNotificationsAndRecording() {
 
 	// All OK, notifications and recording are now disabled
 	printLogln("Reolink notifications and recording disabled.");
+	showReolinkStatus("Cameras Muted", "Exit safely");
 	return true;
 }
 
@@ -384,6 +407,7 @@ bool restoreReolinkNotificationsAndRecording() {
 	// Refuse to run if the feature was not configured
 	if (!hasReolinkCredentials()) {
 		printLogln("Reolink restore skipped because credentials are missing.");
+		showReolinkStatus("NVR Needed", "Add credentials");
 		return false;
 	}
 
@@ -394,5 +418,6 @@ bool restoreReolinkNotificationsAndRecording() {
 
 	// All OK, notifications and recording are now restored
 	printLogln("Reolink notifications and recording restored.");
+	showReolinkStatus("Alerts Restored", "Welcome back");
 	return true;
 }

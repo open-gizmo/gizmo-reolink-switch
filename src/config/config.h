@@ -10,6 +10,8 @@ namespace config {
 	// Pin assignments
 	extern const uint8_t BUZZER_PIN;
 	extern const uint8_t BUTTON_PIN;
+	extern const uint8_t DISPLAY_SDA_PIN;
+	extern const uint8_t DISPLAY_SCL_PIN;
 
 	// WiFi credentials
 	extern const char WIFI_SSID[];
@@ -39,6 +41,11 @@ namespace config {
 
 	// Reolink constants
 	extern const uint8_t REOLINK_MAX_CHANNELS;
+
+	// Display constants
+	extern const uint8_t DISPLAY_I2C_ADDRESS;
+	extern const uint8_t DISPLAY_COLUMNS;
+	extern const uint8_t DISPLAY_ROWS;
 }
 
 #endif

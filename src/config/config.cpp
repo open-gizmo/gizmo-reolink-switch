@@ -31,6 +31,8 @@ namespace config {
 	// Pin assignments
 	const uint8_t BUZZER_PIN = 12;
 	const uint8_t BUTTON_PIN = 13;
+	const uint8_t DISPLAY_SDA_PIN = 26;
+	const uint8_t DISPLAY_SCL_PIN = 25;
 
 	// WiFi credentials
 	const char WIFI_SSID[] = PIO_WIFI_SSID;
@@ -58,4 +60,9 @@ namespace config {
 	const uint32_t TIMER_WARNING_BUZZ_DURATION_MS = 120;
 	const uint32_t TIMER_FINISH_BUZZ_DURATION_MS = 1000;
 	const uint8_t REOLINK_MAX_CHANNELS = 16;
+
+	// Display constants
+	const uint8_t DISPLAY_I2C_ADDRESS = 0x27;
+	const uint8_t DISPLAY_COLUMNS = 16;
+	const uint8_t DISPLAY_ROWS = 2;
 }
