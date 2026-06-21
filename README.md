@@ -48,9 +48,9 @@ The firmware runs on an ESP32 and gives you a compact standalone interface:
 
 The device also provides:
 
-- a buzzer for immediate feedback
-- a 16x2 LCD with clear user-facing status screens
-- serial logs for development and troubleshooting
+- A buzzer for immediate feedback.
+- A 16x2 LCD with clear user-facing status screens.
+- Serial logs for development and troubleshooting.
 
 <a id="features"></a>
 ## ✨ Features
@@ -87,12 +87,12 @@ Gizmo Reolink Switch is built around three cooperating parts:
 
 ### 📋 Requirements
 
-- ESP32 development board
-- Reolink NVR reachable on the same network as the ESP32
-- 1 push button
-- 1 buzzer
-- 16x2 I2C LCD with backpack, detected at `0x27`
-- VS Code with PlatformIO, or PlatformIO Core installed locally
+- ESP32 development board.
+- Reolink NVR reachable on the same network as the ESP32.
+- 1 push button.
+- 1 buzzer.
+- 16x2 I2C LCD with backpack, detected at `0x27`.
+- VS Code with PlatformIO, or PlatformIO Core installed locally.
 
 ### 🔧 Initial Setup
 
@@ -111,10 +111,10 @@ copy platformio_secrets.example.ini platformio_secrets.ini
 
 3. Fill in:
 
-- your WiFi SSID and password
-- your Reolink host
-- your Reolink username and password
-- `PIO_DEV_MODE=1` if you want serial logs
+- Your WiFi SSID and password.
+- Your Reolink host.
+- Your Reolink username and password.
+- `PIO_DEV_MODE=1` if you want serial logs.
 
 4. Build the firmware:
 
@@ -227,12 +227,12 @@ Use [platformio_secrets.example.ini](platformio_secrets.example.ini) as the temp
 
 The main shared constants live in [src/config/config.h](src/config/config.h) and [src/config/config.cpp](src/config/config.cpp), including:
 
-- pin assignments
-- button debounce and long-press timing
-- WiFi and HTTP timing
-- timer step rules
-- buzzer durations
-- LCD geometry and address
+- Pin assignments.
+- Button debounce and long-press timing.
+- WiFi and HTTP timing.
+- Timer step rules.
+- Buzzer durations.
+- LCD geometry and address.
 
 <a id="build-and-deploy"></a>
 ## 🛠️ Build and Deploy
