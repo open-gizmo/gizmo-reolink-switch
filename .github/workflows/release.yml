@@ -1,0 +1,33 @@
+name: Release 📦
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  release:
+    name: Release 📦
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      # Generate version code (es. v2023.09.15.1)
+      - name: 🏷️ Generate version
+        id: version
+        run: |
+          echo "DATE=$(date +'%Y.%m.%d')" >> $GITHUB_OUTPUT
+          echo "VERSION=v$(date +'%Y.%m.%d').${{ github.run_number }}" >> $GITHUB_OUTPUT
+
+      # Create the GitHub release
+      - name: 📦 Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.VERSION }}
+          name: Release ${{ steps.version.outputs.VERSION }}
+          body: |
+            Automated release - ${{ steps.version.outputs.DATE }}
+            
+            Built from commit SHA: ${{ github.sha }}
+          draft: false
+          prerelease: false
