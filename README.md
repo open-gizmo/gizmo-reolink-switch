@@ -28,7 +28,6 @@ Gizmo Reolink Switch is a small ESP32 project that lets you temporarily mute Reo
 	<a href="#hardware"><strong>Hardware</strong></a> •
 	<a href="#firmware-overview"><strong>Firmware Overview</strong></a> •
 	<a href="#configuration"><strong>Configuration</strong></a> •
-	<a href="#build-and-deploy"><strong>Build and Deploy</strong></a> •
 	<a href="#troubleshooting"><strong>Troubleshooting</strong></a> •
 	<a href="#license"><strong>License</strong></a>
 </p>
@@ -107,22 +106,22 @@ Gizmo Reolink Switch is built around three cooperating parts:
 
 ### 🔧 Initial Setup
 
-1. Download the latest release from the [GitHub Releases](https://github.com/open-gizmo/gizmo-reolink-switch/releases/latest) page, then extract the source code archive.
+1. **Download the latest release from the [GitHub Releases](https://github.com/open-gizmo/gizmo-reolink-switch/releases/latest) page, then extract the source code archive.**
 
-2. Create your local secrets file:
+2. **Create your local secrets file.**
 
 ```bash
 copy platformio_secrets.example.ini platformio_secrets.ini
 ```
 
-3. Fill in:
+3. **Fill in the following values.**
 
 - Your WiFi SSID and password.
 - Your Reolink host.
 - Your Reolink username and password.
 - `PIO_DEV_MODE=1` if you want serial logs (Keep it disabled for production use).
 
-4. Build the firmware:
+4. **Build the firmware.**
 
 For VS Code, open the PlatformIO panel and click **Build**.
 
@@ -132,7 +131,7 @@ For the CLI, run:
 pio run
 ```
 
-5. Upload to the ESP32:
+5. **Upload to the ESP32.**
 
 For VS Code, open the PlatformIO panel and click **Upload**.
 
@@ -142,7 +141,7 @@ For the CLI, run:
 pio run --target upload
 ```
 
-6. Open the serial monitor if needed (When `PIO_DEV_MODE=1`):
+6. **Open the serial monitor if needed when `PIO_DEV_MODE=1`**.
 
 For VS Code, open the PlatformIO panel and click **Monitor**.
 
@@ -251,41 +250,6 @@ The main shared constants live in [src/config/config.h](src/config/config.h) and
 - Timer step rules.
 - Buzzer durations.
 - LCD geometry and address.
-
-<a id="build-and-deploy"></a>
-## 🛠️ Build and Deploy
-
-### 🔌 Firmware
-
-Build:
-
-For VS Code, open the PlatformIO panel and click **Build**.
-
-For the CLI, run:
-
-```bash
-pio run
-```
-
-Upload:
-
-For VS Code, open the PlatformIO panel and click **Upload**.
-
-For the CLI, run:
-
-```bash
-pio run --target upload
-```
-
-Monitor serial output:
-
-For VS Code, open the PlatformIO panel and click **Monitor**.
-
-For the CLI, run:
-
-```bash
-pio device monitor
-```
 
 <a id="troubleshooting"></a>
 ## 🧰 Troubleshooting
