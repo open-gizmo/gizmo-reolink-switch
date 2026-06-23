@@ -16,20 +16,20 @@ WiFiSetupResult setupWiFi() {
 	// Check if WiFi is already connected
 	if (WiFi.status() == WL_CONNECTED) {
 		printLogfln("WiFi already connected: %s", WiFi.localIP().toString().c_str());
-		displayShowScreen("Wi-Fi Ready", WiFi.localIP().toString().c_str());
+		displayShowScreen("Wi-Fi Ready!", WiFi.localIP().toString().c_str());
 		return WiFiSetupResult::Connected;
 	}
 
 	// Check if WiFi credentials are configured
 	if (!hasWiFiCredentials()) {
 		printLogln("WiFi credentials are not configured.");
-		displayShowScreen("Wi-Fi Needed", "Add credentials");
+		displayShowScreen("Wi-Fi Needed", "Add credentials!");
 		return WiFiSetupResult::MissingCredentials;
 	}
 
 	// Attempt to connect to WiFi
 	printLogf("Connecting to WiFi SSID: %s", config::WIFI_SSID);
-	displayShowScreen("Joining Wi-Fi", "Please wait...");
+	displayShowScreen("Joining Wi-Fi!", "Please wait...");
 	WiFi.mode(WIFI_STA);
 	WiFi.begin(config::WIFI_SSID, config::WIFI_PASSWORD);
 
@@ -42,7 +42,7 @@ WiFiSetupResult setupWiFi() {
 	// Print the successful connection message with the assigned IP address
 	printLogln("");
 	printLogfln("WiFi connected. IP: %s", WiFi.localIP().toString().c_str());
-	displayShowScreen("Wi-Fi Ready", WiFi.localIP().toString().c_str());
+	displayShowScreen("Wi-Fi Ready!", WiFi.localIP().toString().c_str());
 	return WiFiSetupResult::Connected;
 }
 

@@ -34,15 +34,14 @@ namespace config {
 	extern const uint32_t TIMER_SHORT_DURATION_LIMIT_SECONDS;
 
 	// Buzzer duration constants
-	extern const uint32_t MENU_SELECTION_BUZZ_DURATION_MS;
-	extern const uint32_t TIMER_START_BUZZ_DURATION_MS;
-	extern const uint32_t TIMER_WARNING_BUZZ_DURATION_MS;
-	extern const uint32_t TIMER_FINISH_BUZZ_DURATION_MS;
+	extern const uint32_t SHORT_BUZZ_MS;
+	extern const uint32_t LONG_BUZZ_MS;
 
 	// Reolink constants
 	extern const uint8_t REOLINK_MAX_CHANNELS;
 
 	// Display constants
+	extern const uint32_t SHOW_DISPLAY_MESSAGE_MS;
 	extern const uint8_t DISPLAY_I2C_ADDRESS;
 	extern const uint8_t DISPLAY_COLUMNS;
 	extern const uint8_t DISPLAY_ROWS;

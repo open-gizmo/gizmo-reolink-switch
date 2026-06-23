@@ -1,5 +1,6 @@
 #include "display.h"
 
+#include <cstring>
 #include <Wire.h>
 #include <hd44780.h>
 #include <hd44780ioClass/hd44780_I2Cexp.h>
@@ -19,6 +20,12 @@ namespace {
 	uint8_t activeDisplayRows = 0;
 	uint8_t activeDisplayColumns = 0;
 
+	// Clear one line in the internal buffer
+	void clearLine(uint8_t lineIndex) {
+		memset(displayLines[lineIndex], ' ', activeDisplayColumns);
+		displayLines[lineIndex][activeDisplayColumns] = '\0';
+	}
+
 	// Fill one display line with centered text clipped to the active LCD width
 	void setDisplayLine(uint8_t lineIndex, const char *text) {
 		// If the line index is out of bounds, do nothing
@@ -26,8 +33,8 @@ namespace {
 			return;
 		}
 
-		// Clear the line before writing new text
-		displayLines[lineIndex][0] = '\0';
+		// Reset the full line to padded spaces before writing new text
+		clearLine(lineIndex);
 
 		// If the text is null or the display has no columns, do nothing
 		if (text == nullptr || activeDisplayColumns == 0) {
@@ -36,16 +43,19 @@ namespace {
 
 		// Calculate the visible length of the text and the starting column for centering
 		const size_t textLength = strlen(text);
-		const uint8_t visibleLength = textLength < activeDisplayColumns ? static_cast<uint8_t>(textLength) : activeDisplayColumns;
+		uint8_t visibleLength = textLength < activeDisplayColumns ? static_cast<uint8_t>(textLength) : activeDisplayColumns;
+
+		// Keep displayed messages at an even width when there is room to pad them.
+		if (visibleLength < activeDisplayColumns && (visibleLength % 2) != 0) {
+			visibleLength += 1;
+		}
+
 		const uint8_t startColumn = visibleLength < activeDisplayColumns ? static_cast<uint8_t>((activeDisplayColumns - visibleLength) / 2) : 0;
 
 		// Copy the visible portion of the text into the display line buffer
 		for (uint8_t index = 0; index < visibleLength; index += 1) {
 			displayLines[lineIndex][startColumn + index] = text[index];
 		}
-
-		// Null-terminate the line buffer to ensure proper string handling
-		displayLines[lineIndex][activeDisplayColumns] = '\0';
 	}
 
 	// Draw the current line buffer to the physical display
@@ -63,11 +73,6 @@ namespace {
 			display.setCursor(0, index);
 			display.print(displayLines[index]);
 		}
-	}
-
-	// Clear one line in the internal buffer
-	void clearLine(uint8_t lineIndex) {
-		displayLines[lineIndex][0] = '\0';
 	}
 
 	// Move to the next line, scrolling the buffer when needed

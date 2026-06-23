@@ -29,21 +29,21 @@ namespace {
 		// Show the current timer state on the LCD
 		if (isTimerRunning()) {
 			formatDisplayTime(getRemainingSeconds(), timeBuffer, sizeof(timeBuffer));
-			snprintf(detailLine, sizeof(detailLine), "Left %s", timeBuffer);
-			displayShowScreen("Quiet Mode ON", detailLine);
+			snprintf(detailLine, sizeof(detailLine), "%s left", timeBuffer);
+			displayShowScreen("Alerts OFF", detailLine);
 			return;
 		}
 
 		// Show the selected duration when idle
 		if (getSelectedDurationSeconds() == 0) {
-			displayShowScreen("Quiet Exit", "Tap to add time");
+			displayShowScreen("Reolink Switch", "Tap to start");
 			return;
 		}
 
 		// Show the selected duration when idle
 		formatDisplayTime(getSelectedDurationSeconds(), timeBuffer, sizeof(timeBuffer));
-		snprintf(detailLine, sizeof(detailLine), "Mute %s Hold", timeBuffer);
-		displayShowScreen("Quiet Exit", detailLine);
+		snprintf(detailLine, sizeof(detailLine), "Mute for %s", timeBuffer);
+		displayShowScreen("Hold to mute", detailLine);
 	}
 
 	// React to timer menu events with logging and buzzer feedback
@@ -52,18 +52,19 @@ namespace {
 			// Handle a selection change
 			case MenuEvent::SelectionChanged:
 				printMenuStatus();
-				singleBuzz(config::MENU_SELECTION_BUZZ_DURATION_MS);
+				singleBuzz(config::SHORT_BUZZ_MS);
 				break;
 
 			// Handle the start of a countdown timer
 			case MenuEvent::TimerStarted:
 				// Additional feedback
-				singleBuzz(config::MENU_SELECTION_BUZZ_DURATION_MS);
+				singleBuzz(config::SHORT_BUZZ_MS);
 
 				// Attempt to disable Reolink notifications and recording when the timer starts
 				if (!disableReolinkNotificationsAndRecording()) {
 					printLogln("Failed to disable Reolink notifications and recording. Cancelling timer start.");
-					displayShowScreen("Quiet Mode Fail", "Try again");
+					displayShowScreen("Quiet Mode Fail!", "Try again!");
+					delay(config::SHOW_DISPLAY_MESSAGE_MS);
 					handleMenuEvent(activateOrCancelTimer());
 					break;
 				}
@@ -71,7 +72,7 @@ namespace {
 				// Start the timer and provide feedback
 				printLogln("Timer started");
 				printMenuStatus();
-				singleBuzz(config::TIMER_START_BUZZ_DURATION_MS);
+				singleBuzz(config::LONG_BUZZ_MS);
 				break;
 
 			// Handle a countdown timer tick
@@ -80,7 +81,7 @@ namespace {
 
 				// Provide a short buzz when the timer is about to complete
 				if (getRemainingSeconds() == 2 || getRemainingSeconds() == 1) {
-					singleBuzz(config::TIMER_WARNING_BUZZ_DURATION_MS);
+					singleBuzz(config::SHORT_BUZZ_MS);
 				}
 
 				break;
@@ -90,32 +91,34 @@ namespace {
 				// Attempt to restore Reolink notifications and recording when the timer completes
 				if (!restoreReolinkNotificationsAndRecording()) {
 					printLogln("Failed to restore Reolink notifications and recording after timer completion.");
-					displayShowScreen("Restore Failed", "Check NVR");
+					displayShowScreen("Restore Failed", "Check NVR!");
 				}
 
 				// Finish the timer and return to idle state
 				printLogln("Timer completed. Returning to idle state.");
-				displayShowScreen("Time Is Up", "Alerts restored");
+				displayShowScreen("Time Is Up", "Alerts restored!");
+				delay(config::SHOW_DISPLAY_MESSAGE_MS);
 				printMenuStatus();
-				singleBuzz(config::TIMER_FINISH_BUZZ_DURATION_MS);
+				singleBuzz(config::LONG_BUZZ_MS);
 				break;
 
 			// Handle the cancellation of a countdown timer
 			case MenuEvent::TimerCancelled:
 				// Additional feedback
-				singleBuzz(config::MENU_SELECTION_BUZZ_DURATION_MS);
+				singleBuzz(config::SHORT_BUZZ_MS);
 
 				// Attempt to restore Reolink notifications and recording when the timer is cancelled
 				if (!restoreReolinkNotificationsAndRecording()) {
 					printLogln("Failed to restore Reolink notifications and recording after cancellation.");
-					displayShowScreen("Restore Failed", "Check NVR");
+					displayShowScreen("Restore Failed", "Check NVR!");
 				}
 
 				// Cancel the timer and return to idle state
 				printLogln("Timer cancelled. Returning to idle state.");
-				displayShowScreen("Welcome Back", "Alerts restored");
+				displayShowScreen("Welcome Back", "Alerts restored!");
+				delay(config::SHOW_DISPLAY_MESSAGE_MS);
 				printMenuStatus();
-				singleBuzz(config::TIMER_FINISH_BUZZ_DURATION_MS);
+				singleBuzz(config::LONG_BUZZ_MS);
 				break;
 
 			// Handle no event
@@ -155,7 +158,8 @@ void setup() {
 	// Init display
 	initDisplay();
 	printLogln("Display initialized!");
-	displayShowScreen("Reolink Switch", "Booting up...");
+	displayShowScreen("Reolink Switch", "Booting now...");
+	delay(config::SHOW_DISPLAY_MESSAGE_MS);
 
 	// Init buzzer
 	setupBuzzer();
@@ -168,7 +172,7 @@ void setup() {
 	// Connect WiFi
 	if (setupWiFi() == WiFiSetupResult::MissingCredentials) {
 		printLogln("Program halted. Configure WiFi credentials and reboot.");
-		displayShowScreen("Wi-Fi Needed", "Add credentials");
+		displayShowScreen("Wi-Fi Needed", "Add credentials!");
 		programIsIdle = true;
 		return;
 	}
@@ -176,7 +180,7 @@ void setup() {
 	// Configure Reolink API
 	if (setupReolink() == ReolinkSetupResult::MissingCredentials) {
 		printLogln("Program halted. Configure Reolink credentials and reboot.");
-		displayShowScreen("NVR Needed", "Add credentials");
+		displayShowScreen("NVR Needed", "Add credentials!");
 		programIsIdle = true;
 		return;
 	}

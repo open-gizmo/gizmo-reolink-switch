@@ -4,6 +4,6 @@
 #include <Arduino.h>
 
 void setupBuzzer();
-void singleBuzz(uint32_t durationMs = 1000);
+void singleBuzz(uint32_t durationMs = 800);
 
 #endif

@@ -55,13 +55,14 @@ namespace config {
 	const uint32_t TIMER_SHORT_DURATION_LIMIT_SECONDS = 5UL * 60UL;
 
 	// Buzzer duration constants
-	const uint32_t MENU_SELECTION_BUZZ_DURATION_MS = 40;
-	const uint32_t TIMER_START_BUZZ_DURATION_MS = 1000;
-	const uint32_t TIMER_WARNING_BUZZ_DURATION_MS = 120;
-	const uint32_t TIMER_FINISH_BUZZ_DURATION_MS = 1000;
+	const uint32_t SHORT_BUZZ_MS = 50;
+	const uint32_t LONG_BUZZ_MS = 800;
+
+	// Reolink constants
 	const uint8_t REOLINK_MAX_CHANNELS = 16;
 
 	// Display constants
+	const uint32_t SHOW_DISPLAY_MESSAGE_MS = 1000;
 	const uint8_t DISPLAY_I2C_ADDRESS = 0x27;
 	const uint8_t DISPLAY_COLUMNS = 16;
 	const uint8_t DISPLAY_ROWS = 2;
