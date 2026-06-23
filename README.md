@@ -21,6 +21,7 @@ Gizmo Reolink Switch is a small ESP32 project that lets you temporarily mute Reo
 
 <p>
 	<a href="#overview"><strong>Overview</strong></a> •
+	<a href="#images"><strong>Images</strong></a> •
 	<a href="#features"><strong>Features</strong></a> •
 	<a href="#architecture"><strong>Architecture</strong></a> •
 	<a href="#quick-start"><strong>Quick Start</strong></a> •
@@ -51,6 +52,16 @@ The device also provides:
 - A buzzer for immediate feedback.
 - A 16x2 LCD with clear user-facing status screens.
 - Serial logs for development and troubleshooting.
+
+<a id="images"></a>
+## 🖼️ Images
+
+### Prototype
+
+<figure align="center">
+	<img src="https://raw.githubusercontent.com/open-gizmo/gizmo-reolink-switch/main/docs/prototype.jpeg" alt="Gizmo Reolink Switch prototype" width="720">
+	<figcaption><sub>Prototype build of Gizmo Reolink Switch</sub></figcaption>
+</figure>
 
 <a id="features"></a>
 ## ✨ Features
@@ -92,16 +103,11 @@ Gizmo Reolink Switch is built around three cooperating parts:
 - 1 push button.
 - 1 buzzer.
 - 16x2 I2C LCD with backpack, detected at `0x27`.
-- VS Code with PlatformIO, or PlatformIO Core installed locally.
+- VS Code with the PlatformIO IDE extension installed, or PlatformIO Core installed locally.
 
 ### 🔧 Initial Setup
 
-1. Clone the repository:
-
-```bash
-git clone https://github.com/open-gizmo/gizmo-reolink-switch.git
-cd gizmo-reolink-switch
-```
+1. Download the latest release from the [GitHub Releases](https://github.com/open-gizmo/gizmo-reolink-switch/releases/latest) page, then extract the source code archive.
 
 2. Create your local secrets file:
 
@@ -114,9 +120,13 @@ copy platformio_secrets.example.ini platformio_secrets.ini
 - Your WiFi SSID and password.
 - Your Reolink host.
 - Your Reolink username and password.
-- `PIO_DEV_MODE=1` if you want serial logs.
+- `PIO_DEV_MODE=1` if you want serial logs (Keep it disabled for production use).
 
 4. Build the firmware:
+
+For VS Code, open the PlatformIO panel and click **Build**.
+
+For the CLI, run:
 
 ```bash
 pio run
@@ -124,11 +134,19 @@ pio run
 
 5. Upload to the ESP32:
 
+For VS Code, open the PlatformIO panel and click **Upload**.
+
+For the CLI, run:
+
 ```bash
 pio run --target upload
 ```
 
-6. Open the serial monitor if needed:
+6. Open the serial monitor if needed (When `PIO_DEV_MODE=1`):
+
+For VS Code, open the PlatformIO panel and click **Monitor**.
+
+For the CLI, run:
 
 ```bash
 pio device monitor
@@ -241,17 +259,29 @@ The main shared constants live in [src/config/config.h](src/config/config.h) and
 
 Build:
 
+For VS Code, open the PlatformIO panel and click **Build**.
+
+For the CLI, run:
+
 ```bash
 pio run
 ```
 
 Upload:
 
+For VS Code, open the PlatformIO panel and click **Upload**.
+
+For the CLI, run:
+
 ```bash
 pio run --target upload
 ```
 
 Monitor serial output:
+
+For VS Code, open the PlatformIO panel and click **Monitor**.
+
+For the CLI, run:
 
 ```bash
 pio device monitor
