@@ -57,10 +57,12 @@ The device also provides:
 
 ### Prototype
 
-<figure align="center">
+<div align="center">
 	<img src="https://raw.githubusercontent.com/open-gizmo/gizmo-reolink-switch/main/docs/prototype.jpeg" alt="Gizmo Reolink Switch prototype" width="720">
-	<figcaption><sub>Prototype build of Gizmo Reolink Switch</sub></figcaption>
-</figure>
+	<p>
+		<sub>Prototype build of Gizmo Reolink Switch</sub>
+	</p>
+</div>
 
 <a id="features"></a>
 ## ✨ Features
