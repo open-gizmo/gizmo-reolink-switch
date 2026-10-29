@@ -56,6 +56,7 @@ namespace config {
 	const uint32_t TIMER_SHORT_DURATION_STEP_SECONDS = 1UL * 60UL;
 	const uint32_t TIMER_LONG_DURATION_STEP_SECONDS = 5UL * 60UL;
 	const uint32_t TIMER_SHORT_DURATION_LIMIT_SECONDS = 5UL * 60UL;
+	const uint32_t TIMER_MAX_DURATION_SECONDS = 60UL * 60UL; // Keep accidental long mutes short (the next press wraps back to zero)
 
 	// Buzzer duration constants
 	const uint32_t SHORT_BUZZ_MS = 50;

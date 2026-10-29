@@ -35,6 +35,7 @@ namespace config {
 	extern const uint32_t TIMER_SHORT_DURATION_STEP_SECONDS;
 	extern const uint32_t TIMER_LONG_DURATION_STEP_SECONDS;
 	extern const uint32_t TIMER_SHORT_DURATION_LIMIT_SECONDS;
+	extern const uint32_t TIMER_MAX_DURATION_SECONDS;
 
 	// Buzzer duration constants
 	extern const uint32_t SHORT_BUZZ_MS;

@@ -68,7 +68,7 @@ The device also provides:
 ## ✨ Features
 
 - One-button interface with short-press and long-press actions.
-- Smart timer selection: `+1 minute` below 5 minutes, then `+5 minutes` increments.
+- Smart timer selection: `+1 minute` below 5 minutes, then `+5 minutes` increments, up to 60 minutes. One more press goes back to zero, so an overshoot can be fixed without starting the timer.
 - Reolink integration using direct API calls from the ESP32.
 - Automatic restore of notifications and recording when the timer ends, with retries if the NVR is unreachable or a muted camera is offline.
 - Muted channels are saved in flash, so the cameras are restored even if the device reboots while they are muted.

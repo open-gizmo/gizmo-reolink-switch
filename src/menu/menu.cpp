@@ -34,7 +34,7 @@ void setupMenu() {
 	resetTimerState();
 }
 
-// Increase the selected timer duration by 1 or 5 minutes depending on the current value
+// Increase the selected timer duration by 1 or 5 minutes depending on the current value, wrapping to zero after the maximum
 MenuEvent increaseSelectedDuration() {
 	// Ignore selection changes while the timer is running
 	if (timerRunning) {
@@ -44,8 +44,16 @@ MenuEvent increaseSelectedDuration() {
 	// Determine the step size based on the current selected duration
 	const uint32_t durationStepSeconds = selectedDurationSeconds < config::TIMER_SHORT_DURATION_LIMIT_SECONDS ? config::TIMER_SHORT_DURATION_STEP_SECONDS : config::TIMER_LONG_DURATION_STEP_SECONDS;
 
-	// Increase the selected duration and update the display
-	selectedDurationSeconds += durationStepSeconds;
+	// Wrap back to zero after the maximum (so an overshoot can be fixed without a mute and restore cycle), otherwise step up without passing the maximum
+	if (selectedDurationSeconds >= config::TIMER_MAX_DURATION_SECONDS) {
+		selectedDurationSeconds = 0;
+	} else if (config::TIMER_MAX_DURATION_SECONDS - selectedDurationSeconds < durationStepSeconds) {
+		selectedDurationSeconds = config::TIMER_MAX_DURATION_SECONDS;
+	} else {
+		selectedDurationSeconds += durationStepSeconds;
+	}
+
+	// Update the display
 	updateMenuDisplayText("Selected duration: ", selectedDurationSeconds);
 
 	// Return the event indicating that the selection has changed

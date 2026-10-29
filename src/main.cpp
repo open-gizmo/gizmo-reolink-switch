@@ -2,6 +2,7 @@
 #include "button/button.h"
 #include "buzzer/buzzer.h"
 #include "display/display.h"
+#include "format/format.h"
 #include "menu/menu.h"
 #include "reolink/reolink.h"
 #include "serial/serial.h"
@@ -16,16 +17,9 @@ namespace {
 	bool shouldRetryRestoreNow = false;
 	uint32_t lastRestoreAttemptTimeMs = 0;
 
-	// Format seconds as MM:SS for the LCD
-	void formatDisplayTime(uint32_t totalSeconds, char *buffer, size_t bufferSize) {
-		const uint32_t minutes = totalSeconds / 60;
-		const uint32_t seconds = totalSeconds % 60;
-		snprintf(buffer, bufferSize, "%02lu:%02lu", static_cast<unsigned long>(minutes), static_cast<unsigned long>(seconds));
-	}
-
 	// Print the current timer state to the serial console
 	void printMenuStatus() {
-		char timeBuffer[6] = {0};
+		char timeBuffer[DURATION_TEXT_SIZE] = {0};
 		char detailLine[17] = {0};
 
 		// Format the remaining time for display
@@ -33,7 +27,7 @@ namespace {
 
 		// Show the current timer state on the LCD
 		if (isTimerRunning()) {
-			formatDisplayTime(getRemainingSeconds(), timeBuffer, sizeof(timeBuffer));
+			formatDuration(getRemainingSeconds(), timeBuffer, sizeof(timeBuffer));
 			snprintf(detailLine, sizeof(detailLine), "%s left", timeBuffer);
 			displayShowScreen("Alerts OFF", detailLine);
 			return;
@@ -52,7 +46,7 @@ namespace {
 		}
 
 		// Show the selected duration when idle
-		formatDisplayTime(getSelectedDurationSeconds(), timeBuffer, sizeof(timeBuffer));
+		formatDuration(getSelectedDurationSeconds(), timeBuffer, sizeof(timeBuffer));
 		snprintf(detailLine, sizeof(detailLine), "Mute for %s", timeBuffer);
 		displayShowScreen("Hold to mute", detailLine);
 	}
@@ -252,7 +246,7 @@ void setup() {
 		printLogln("Cameras were still muted before the last reboot. Restoring them now.");
 		shouldRetryRestoreNow = true;
 	}
-	printLogln("Short press: add 1 minute below 5 minutes, otherwise add 5 minutes");
+	printLogln("Short press: add 1 minute below 5 minutes, otherwise add 5 minutes (after 60 minutes, back to zero)");
 	printLogln("Long press: start or cancel timer");
 	printMenuStatus();
 }

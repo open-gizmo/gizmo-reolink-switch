@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <unity.h>
 
+#include "config/config.h"
 #include "menu/menu.h"
 
 namespace {
@@ -44,6 +45,40 @@ void test_short_presses_follow_the_step_rules() {
 		TEST_ASSERT_EQUAL(MenuEvent::SelectionChanged, increaseSelectedDuration());
 		TEST_ASSERT_EQUAL_UINT32(minutes * 60, getSelectedDurationSeconds());
 	}
+}
+
+// The selection stops at the 60 minute maximum, even if a step would pass it
+void test_selection_stops_at_the_maximum() {
+	// Press until the maximum: 5 presses of 1 minute, then 11 presses of 5 minutes
+	pressShortTimes(16);
+
+	// Expect exactly the maximum
+	TEST_ASSERT_EQUAL_UINT32(config::TIMER_MAX_DURATION_SECONDS, getSelectedDurationSeconds());
+	TEST_ASSERT_EQUAL_STRING("Selected duration: 60:00", getMenuDisplayText());
+}
+
+// One more press after the maximum wraps back to zero (so an overshoot can be fixed without muting)
+void test_selection_wraps_to_zero_after_the_maximum() {
+	// Press until the maximum, then once more
+	pressShortTimes(16);
+	TEST_ASSERT_EQUAL(MenuEvent::SelectionChanged, increaseSelectedDuration());
+
+	// Expect the selection to be back at zero
+	TEST_ASSERT_EQUAL_UINT32(0, getSelectedDurationSeconds());
+
+	// Expect the next press to start the cycle again from 1 minute
+	increaseSelectedDuration();
+	TEST_ASSERT_EQUAL_UINT32(60, getSelectedDurationSeconds());
+}
+
+// Wrapping to zero leaves nothing to start
+void test_long_press_after_wrap_does_nothing() {
+	// Wrap the selection back to zero
+	pressShortTimes(17);
+
+	// Expect a long press not to start the timer
+	TEST_ASSERT_EQUAL(MenuEvent::None, activateOrCancelTimer());
+	TEST_ASSERT_FALSE(isTimerRunning());
 }
 
 // The status text shows the selected duration as M:SS
@@ -206,6 +241,9 @@ int main() {
 
 	// Duration selection
 	RUN_TEST(test_short_presses_follow_the_step_rules);
+	RUN_TEST(test_selection_stops_at_the_maximum);
+	RUN_TEST(test_selection_wraps_to_zero_after_the_maximum);
+	RUN_TEST(test_long_press_after_wrap_does_nothing);
 	RUN_TEST(test_selection_updates_the_display_text);
 	RUN_TEST(test_long_press_without_duration_does_nothing);
 	RUN_TEST(test_selection_is_ignored_while_running);
