@@ -195,7 +195,8 @@ The firmware is split into focused modules under `src/`:
 - 📺 `display/` manages the LCD screens and layout.
 - ⏱️ `menu/` implements timer selection and countdown state.
 - 📡 `wifi/` connects the ESP32 to the local network and reconnects when the connection drops.
-- 💾 `storage/` saves the muted channels in NVS so a reboot can't leave the cameras muted.
+- 💾 `storage/` saves the muted push and recording settings in NVS so a reboot can't leave the cameras muted.
+- 🧮 `channels/` keeps track of which setting is muted on which channel, from the answer to each NVR command.
 - 🎥 `reolink/` authenticates against the NVR and toggles notifications and recording.
 - 🧾 `serial/` handles development logs when dev mode is enabled.
 - ⚙️ `config/` centralizes pins, timing values, credentials, and display settings.
@@ -273,6 +274,8 @@ The main shared constants live in [src/config/config.h](src/config/config.h) and
 - Button does nothing: verify the wiring against the input mode expected by the firmware.
 - Quiet mode does not start: check WiFi connectivity and Reolink credentials first.
 - NVR state does not restore: the LCD shows `Alerts Still OFF` and the firmware keeps retrying. Hold the button to retry right away, or enable `PIO_DEV_MODE=1` and inspect the serial logs.
+- `Partly Muted!` after starting the timer: the NVR refused some commands (for example recording on a channel without a disk). The muted settings are still restored at the end, and the refused ones were never changed.
+- `Login Paused` / `Check password`: the NVR refused a login, so the firmware waits 10 minutes before trying again (repeated wrong-password logins can lock the NVR account). Fix the credentials in `platformio_secrets.ini` and reflash, or wait.
 
 <a id="license"></a>
 ## 📄 License

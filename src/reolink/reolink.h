@@ -8,6 +8,12 @@ enum class ReolinkSetupResult : uint8_t {
 	MissingCredentials,
 };
 
+enum class ReolinkMuteResult : uint8_t {
+	Muted,
+	PartiallyMuted, // Some settings were refused, the others are muted
+	Failed,
+};
+
 enum class ReolinkRestoreResult : uint8_t {
 	Restored,
 	PartiallyRestored, // Some muted cameras are offline and still need to be restored
@@ -15,7 +21,7 @@ enum class ReolinkRestoreResult : uint8_t {
 };
 
 ReolinkSetupResult setupReolink();
-bool disableReolinkNotificationsAndRecording();
+ReolinkMuteResult disableReolinkNotificationsAndRecording();
 ReolinkRestoreResult restoreReolinkNotificationsAndRecording();
 bool hasPendingReolinkRestore();
 

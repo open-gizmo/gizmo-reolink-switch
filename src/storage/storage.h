@@ -3,8 +3,10 @@
 
 #include <Arduino.h>
 
+#include "channels/channels.h"
+
 void setupStorage();
-uint32_t getMutedChannelMask();
-bool saveMutedChannelMask(uint32_t channelMask);
+MutedChannelMasks getMutedChannelMasks();
+bool saveMutedChannelMasks(const MutedChannelMasks &masks);
 
 #endif

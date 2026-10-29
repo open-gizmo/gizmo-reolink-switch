@@ -5,14 +5,21 @@
 #include "serial/serial.h"
 
 namespace {
-	// NVS namespace and key (keys are limited to 15 characters)
+	// NVS namespace and keys (keys are limited to 15 characters)
 	constexpr char STORAGE_NAMESPACE[] = "reolink";
-	constexpr char MUTED_CHANNELS_KEY[] = "mutedChannels";
+	constexpr char MUTED_PUSH_KEY[] = "mutedPush";
+	constexpr char MUTED_RECORDING_KEY[] = "mutedRec";
 
-	// Keep the NVS handle open and cache the stored value in RAM
+	// Keep the NVS handle open and cache the stored values in RAM
 	Preferences preferences;
 	bool storageReady = false;
-	uint32_t mutedChannelMask = 0;
+	MutedChannelMasks mutedChannelMasks = { 0, 0 };
+
+	// Write one mask to NVS only when its value changes
+	bool saveMaskIfChanged(const char *key, uint32_t storedMask, uint32_t newMask) {
+		if (storedMask == newMask) return true;
+		return preferences.putULong(key, newMask) == sizeof(uint32_t);
+	}
 }
 
 // Open the NVS namespace and load the saved muted channels
@@ -25,24 +32,26 @@ void setupStorage() {
 		return;
 	}
 
-	// Load the channels that were still muted before the last reboot
-	mutedChannelMask = preferences.getULong(MUTED_CHANNELS_KEY, 0);
+	// Load the settings that were still muted before the last reboot
+	mutedChannelMasks.pushChannelMask = preferences.getULong(MUTED_PUSH_KEY, 0);
+	mutedChannelMasks.recordingChannelMask = preferences.getULong(MUTED_RECORDING_KEY, 0);
 }
 
-// Get the channels that are currently muted (one bit per channel)
-uint32_t getMutedChannelMask() {
-	return mutedChannelMask;
+// Get the channels whose push notifications and recording are currently muted
+MutedChannelMasks getMutedChannelMasks() {
+	return mutedChannelMasks;
 }
 
-// Save the channels that are currently muted, writing to flash only when the value changes
-bool saveMutedChannelMask(uint32_t channelMask) {
-	// Nothing to write if the value is unchanged
-	if (channelMask == mutedChannelMask) return true;
+// Save the muted channels, writing to flash only the masks that changed
+bool saveMutedChannelMasks(const MutedChannelMasks &masks) {
+	const MutedChannelMasks storedMasks = mutedChannelMasks;
 
 	// Update the RAM copy first, so the firmware keeps the right state even if the flash write fails
-	mutedChannelMask = channelMask;
+	mutedChannelMasks = masks;
 	if (!storageReady) return false;
 
-	// Write the new value to NVS
-	return preferences.putULong(MUTED_CHANNELS_KEY, channelMask) == sizeof(uint32_t);
+	// Write the masks that changed
+	const bool isPushSaved = saveMaskIfChanged(MUTED_PUSH_KEY, storedMasks.pushChannelMask, masks.pushChannelMask);
+	const bool isRecordingSaved = saveMaskIfChanged(MUTED_RECORDING_KEY, storedMasks.recordingChannelMask, masks.recordingChannelMask);
+	return isPushSaved && isRecordingSaved;
 }

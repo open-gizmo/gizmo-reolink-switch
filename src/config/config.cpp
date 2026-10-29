@@ -49,6 +49,7 @@ namespace config {
 	const uint32_t WIFI_CONNECT_RETRY_DELAY_MS = 500;
 	const uint32_t REOLINK_HTTP_TIMEOUT_MS = 10000;
 	const uint32_t REOLINK_RESTORE_RETRY_MS = 60000; // Retry a failed or partial restore every minute
+	const uint32_t REOLINK_LOGIN_PAUSE_MS = 10UL * 60UL * 1000UL; // Wait after a refused login (NVRs lock the account after a few failures)
 	const uint32_t WIFI_CONNECT_TIMEOUT_MS = 20000; // Stop waiting at boot and keep retrying in the background
 	const uint32_t WIFI_RECONNECT_INTERVAL_MS = 30000; // Time without Wi-Fi before forcing a reconnect
 

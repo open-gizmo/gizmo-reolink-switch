@@ -6,16 +6,29 @@
 
 #include "config/config.h"
 #include "display/display.h"
+#include "channels/channels.h"
 #include "serial/serial.h"
 #include "storage/storage.h"
+#include "wifi/wifi.h"
 
 namespace {
-	// Muted channels are saved as a 32-bit mask, one bit per channel
-	constexpr uint8_t MAX_TRACKED_CHANNEL_COUNT = 32;
+	// Reolink error code for a missing or expired session
+	constexpr int SESSION_EXPIRED_CODE = -6;
+
+	// How a request to the NVR ended
+	enum class RequestResult : uint8_t {
+		Ok,
+		NetworkError, // The NVR could not be reached or sent an unreadable answer
+		CommandError, // The NVR answered but refused a command
+	};
 
 	// Keep the current session token and its expiry time in memory
 	String sessionToken;
 	uint32_t tokenExpiryTimeMs = 0;
+
+	// Login pause after the NVR refuses a login (repeated wrong-password logins can lock the account)
+	bool isLoginPaused = false;
+	uint32_t loginPausedAtMs = 0;
 
 	// Show a short user-friendly NVR status on the LCD
 	void showReolinkStatus(const char *line1, const char *line2) {
@@ -86,7 +99,7 @@ namespace {
 	}
 
 	// Send one HTTPS API request with a prebuilt JSON array body and parse the standard Reolink envelope
-	bool sendReolinkRequest(const String &url, const char *command, JsonDocument &requestDoc, JsonDocument &responseDoc, int &responseCode) {
+	RequestResult sendReolinkRequest(const String &url, const char *command, JsonDocument &requestDoc, JsonDocument &responseDoc, int &responseCode, bool requireAllCommandsSucceeded = true) {
 		// Reolink NVRs commonly use self-signed HTTPS certificates
 		WiFiClientSecure secureClient;
 		secureClient.setInsecure();
@@ -97,7 +110,7 @@ namespace {
 			printLogfln("Reolink: failed to open HTTP client for %s", command);
 			showReolinkStatus("NVR Link Error", "Check network!");
 			responseCode = -1;
-			return false;
+			return RequestResult::NetworkError;
 		}
 
 		// Set the HTTP timeout and content type for the request
@@ -118,7 +131,7 @@ namespace {
 			printLogfln("Reolink: HTTP request failed for %s (code %d)", command, statusCode);
 			showReolinkStatus("NVR Link Error", "Check network!");
 			responseCode = statusCode;
-			return false;
+			return RequestResult::NetworkError;
 		}
 
 		// Check for non-successful HTTP status codes
@@ -127,7 +140,7 @@ namespace {
 			printLogfln("Reolink response: %s", responseBody.c_str());
 			showReolinkStatus("NVR Busy", "Try again!");
 			responseCode = statusCode;
-			return false;
+			return RequestResult::NetworkError;
 		}
 
 		// Parse the JSON response body into a document
@@ -138,7 +151,7 @@ namespace {
 			printLogfln("Reolink: failed to parse JSON for %s: %s", command, jsonError.c_str());
 			showReolinkStatus("NVR Reply Err!", "Try again!");
 			responseCode = -1;
-			return false;
+			return RequestResult::NetworkError;
 		}
 
 		// Get the results array
@@ -149,31 +162,50 @@ namespace {
 			printLogfln("Reolink: empty API result for %s", command);
 			showReolinkStatus("NVR Reply Err!", "Empty answer");
 			responseCode = -1;
-			return false;
+			return RequestResult::NetworkError;
 		}
 
 		// Iterate through the results and check for errors in each command response
 		for (JsonObject result : results) {
 			const int resultCode = result["code"] | -1;
-			responseCode = result["error"]["rspCode"] | resultCode;
+			if (resultCode == 0) continue;
 
-			// If the result code is not zero, log the failed command and its error detail
-			if (resultCode != 0) {
-				const char *failedCommand = result["cmd"] | command;
-				const char *detail = result["error"]["detail"] | "unknown error";
-				printLogfln("Reolink: %s failed: %s", failedCommand, detail);
+			// Log the failed command and its error detail
+			const int errorCode = result["error"]["rspCode"] | resultCode;
+			const char *failedCommand = result["cmd"] | command;
+			const char *detail = result["error"]["detail"] | "unknown error";
+			printLogfln("Reolink: %s failed (%d): %s", failedCommand, errorCode, detail);
+
+			// An expired session fails the whole request, so the caller can log in again and retry
+			if (errorCode == SESSION_EXPIRED_CODE) {
+				responseCode = errorCode;
+				return RequestResult::CommandError;
+			}
+
+			// Fail the whole request unless the caller reads the result of each command itself
+			if (requireAllCommandsSucceeded) {
 				showReolinkStatus("NVR Command Err!", "Try again!");
-				return false;
+				responseCode = errorCode;
+				return RequestResult::CommandError;
 			}
 		}
 
-		// If we reach this point, the API call was successful, and we can return true
+		// If we reach this point, the NVR answered every command
 		responseCode = 0;
-		return true;
+		return RequestResult::Ok;
 	}
 
 	// Log in once and cache the returned token for later API calls
 	bool loginReolink() {
+		// Don't retry too soon after the NVR refused a login
+		if (isLoginPaused && millis() - loginPausedAtMs < config::REOLINK_LOGIN_PAUSE_MS) {
+			printLogln("Reolink: login paused after a refused login.");
+			showReolinkStatus("Login Paused", "Check password");
+			delay(config::SHOW_DISPLAY_MESSAGE_MS);
+			return false;
+		}
+		isLoginPaused = false;
+
 		// Create a JSON document with the login parameters
 		JsonDocument requestDoc;
 		JsonArray requestArray = requestDoc.to<JsonArray>();
@@ -191,9 +223,21 @@ namespace {
 		const String loginUrl = buildApiUrl("Login", "token", "null");
 
 		// Send the login request and check for errors
-		if (!sendReolinkRequest(loginUrl, "Login", requestDoc, responseDoc, responseCode)) {
+		const RequestResult loginResult = sendReolinkRequest(loginUrl, "Login", requestDoc, responseDoc, responseCode);
+		if (loginResult != RequestResult::Ok) {
 			sessionToken = "";
 			tokenExpiryTimeMs = 0;
+
+			// Pause logins if the NVR refused this one (wrong credentials, too many sessions...)
+			if (loginResult == RequestResult::CommandError) {
+				printLogfln("Reolink: login refused (code %d), pausing logins.", responseCode);
+				showReolinkStatus("NVR Login Err!", "Check password");
+				delay(config::SHOW_DISPLAY_MESSAGE_MS);
+				isLoginPaused = true;
+				loginPausedAtMs = millis();
+			}
+
+			// Login failed
 			return false;
 		}
 
@@ -228,40 +272,37 @@ namespace {
 	}
 
 	// Send one prepared request document with token auth and retry once on auth failure
-	bool executeReolinkRequest(const char *command, JsonDocument &requestDoc, JsonDocument &responseDoc) {
-		// Ensure a valid session token is available before making the API call
+	RequestResult executeReolinkRequest(const char *command, JsonDocument &requestDoc, JsonDocument &responseDoc, bool requireAllCommandsSucceeded = true) {
+		// Ensure a valid session token is available before making the API call (the login shows its own errors)
 		if (!ensureReolinkToken()) {
 			printLogln("Reolink: unable to acquire a session token.");
-			showReolinkStatus("NVR Login Err!", "Check login!");
-			return false;
+			return RequestResult::NetworkError;
 		}
 
 		// Create the API URL
 		int responseCode = 0;
 		String url = buildApiUrl(command, "token", sessionToken.c_str());
 
-		// Send the API request and check for errors
-		if (sendReolinkRequest(url, command, requestDoc, responseDoc, responseCode)) {
-			return true;
-		}
-
-		// If the response code indicates an expired token, attempt to log in again and retry the API call
-		if (responseCode != -6) {
-			return false;
+		// Send the API request and return unless the session expired
+		const RequestResult result = sendReolinkRequest(url, command, requestDoc, responseDoc, responseCode, requireAllCommandsSucceeded);
+		if (result != RequestResult::CommandError || responseCode != SESSION_EXPIRED_CODE) {
+			return result;
 		}
 
 		// Log that the session has expired and attempt to log in again
 		printLogln("Reolink: session expired, logging in again.");
 		showReolinkStatus("NVR Reconnect!", "Please wait!");
+		sessionToken = "";
+		tokenExpiryTimeMs = 0;
 
 		// Attempt to log in again to acquire a new session token
 		if (!loginReolink()) {
-			return false;
+			return RequestResult::NetworkError;
 		}
 
 		// Retry the API call with the new session token
 		url = buildApiUrl(command, "token", sessionToken.c_str());
-		return sendReolinkRequest(url, command, requestDoc, responseDoc, responseCode);
+		return sendReolinkRequest(url, command, requestDoc, responseDoc, responseCode, requireAllCommandsSucceeded);
 	}
 
 	// Send a token-authenticated Reolink API call and retry once on auth failure
@@ -269,7 +310,7 @@ namespace {
 		JsonDocument requestDoc;
 		JsonArray requestArray = requestDoc.to<JsonArray>();
 		appendApiRequest(requestArray, command, params);
-		return executeReolinkRequest(command, requestDoc, responseDoc);
+		return executeReolinkRequest(command, requestDoc, responseDoc) == RequestResult::Ok;
 	}
 
 	// Query the NVR and keep only currently online channels (the list can be empty)
@@ -296,7 +337,7 @@ namespace {
 				continue;
 			}
 
-			// Skip channels that don't fit in the saved muted-channels mask
+			// Skip channels that don't fit in the saved muted-channels masks
 			const uint8_t channel = static_cast<uint8_t>(statusEntry["channel"] | channelCount);
 			if (channel >= MAX_TRACKED_CHANNEL_COUNT) {
 				printLogfln("Reolink: channel %u is not supported and will be skipped", channel);
@@ -312,70 +353,77 @@ namespace {
 		return true;
 	}
 
-	// Build a bitmask with one bit per channel
-	uint32_t buildChannelMask(const uint8_t *channels, uint8_t channelCount) {
-		uint32_t channelMask = 0;
+	// Append the command that changes one setting of one channel to a batch request
+	void appendChannelSettingRequest(JsonArray requestArray, const ChannelCommand &command, bool enabled) {
+		JsonDocument paramsDoc;
+		JsonObject params = paramsDoc.to<JsonObject>();
 
-		// Set the bit of each channel
-		for (uint8_t index = 0; index < channelCount; index += 1) {
-			channelMask |= 1UL << channels[index];
-		}
+		// Set the channel and the new state of the setting
+		JsonObject settingObject = params[command.setting == ChannelSetting::Push ? "Push" : "Rec"].to<JsonObject>();
+		settingObject["channel"] = command.channel;
+		settingObject["enable"] = enabled ? 1 : 0;
+		settingObject["scheduleEnable"] = enabled ? 1 : 0;
 
-		// Return the channel mask
-		return channelMask;
+		// Add the command to the batch
+		appendApiRequest(requestArray, getChannelSettingCommand(command.setting), params);
 	}
 
-	// Append one channel's push and recording commands to a shared batch request
-	void appendChannelMuteRequests(JsonArray requestArray, uint8_t channel, bool enabled) {
-		// Create the JSON parameters for the push notification command for this channel
-		JsonDocument pushParamsDoc;
-		JsonObject pushParams = pushParamsDoc.to<JsonObject>();
-		JsonObject pushObject = pushParams["Push"].to<JsonObject>();
-		pushObject["channel"] = channel;
-		pushObject["enable"] = enabled ? 1 : 0;
-		pushObject["scheduleEnable"] = enabled ? 1 : 0;
-		appendApiRequest(requestArray, "SetPushV20", pushParams);
-
-		// Create the JSON parameters for the recording command for this channel
-		JsonDocument recParamsDoc;
-		JsonObject recParams = recParamsDoc.to<JsonObject>();
-		JsonObject recObject = recParams["Rec"].to<JsonObject>();
-		recObject["channel"] = channel;
-		recObject["enable"] = enabled ? 1 : 0;
-		recObject["scheduleEnable"] = enabled ? 1 : 0;
-		appendApiRequest(requestArray, "SetRecV20", recParams);
-	}
-
-	// Apply the requested notification and recording state to the given channels in a single batch
-	bool applyChannelsState(const uint8_t *channels, uint8_t channelCount, bool enabled) {
+	// Send the channel commands in a single batch and read the outcome of each one
+	bool applyChannelCommands(const ChannelCommand *commands, uint8_t commandCount, bool enabled, CommandOutcome *outcomes) {
 		JsonDocument requestDoc;
 		JsonArray requestArray = requestDoc.to<JsonArray>();
 
-		// Append the mute requests for each channel to the batch request
-		for (uint8_t index = 0; index < channelCount; index += 1) {
-			appendChannelMuteRequests(requestArray, channels[index], enabled);
+		// Mark every outcome as unknown until the NVR answers
+		for (uint8_t index = 0; index < commandCount; index += 1) {
+			outcomes[index] = CommandOutcome::Unknown;
+		}
+
+		// Append one request per channel setting to the batch
+		for (uint8_t index = 0; index < commandCount; index += 1) {
+			appendChannelSettingRequest(requestArray, commands[index], enabled);
 		}
 
 		// Log the batch request and send it to the Reolink API
-		printLogfln("Reolink: sending batch request to turn %s notifications and recording for %u channels...", enabled ? "on" : "off", channelCount);
+		printLogfln("Reolink: sending %u commands to turn %s notifications and recording...", commandCount, enabled ? "on" : "off");
 		showReolinkStatus(enabled ? "Quiet Mode OFF" : "Quiet Mode ON", enabled ? "Restoring alerts" : "Muting cameras");
 
-		// Send the batch request to the Reolink API and check for errors
+		// Send the batch, reading the result of each command instead of failing the whole batch
 		JsonDocument responseDoc;
-		if (!executeReolinkRequest("SetPushV20", requestDoc, responseDoc)) {
+		if (executeReolinkRequest(getChannelSettingCommand(commands[0].setting), requestDoc, responseDoc, false) != RequestResult::Ok) {
 			printLogfln("Reolink: failed to %s notifications and recording.", enabled ? "restore" : "disable");
 			showReolinkStatus("Camera Sync Fail", "Try again!");
 			delay(config::SHOW_DISPLAY_MESSAGE_MS);
 			return false;
 		}
 
-		// All OK
-		printLogfln("Reolink: notifications and recording are now %s for %u channels.", enabled ? "enabled" : "disabled", channelCount);
+		// Read the answer to each command (the NVR answers in request order)
+		uint8_t index = 0;
+		for (JsonObject result : responseDoc.as<JsonArray>()) {
+			if (index >= commandCount) break;
+
+			// Keep the outcome unknown if the answer is for another command (the setting may or may not have changed)
+			const char *expectedCommand = getChannelSettingCommand(commands[index].setting);
+			const char *answeredCommand = result["cmd"] | expectedCommand;
+			if (strcmp(answeredCommand, expectedCommand) != 0) {
+				printLogfln("Reolink: unexpected answer %s for %s on channel %u", answeredCommand, expectedCommand, commands[index].channel);
+				index += 1;
+				continue;
+			}
+
+			// Record whether the command succeeded
+			outcomes[index] = (result["code"] | -1) == 0 ? CommandOutcome::Succeeded : CommandOutcome::Failed;
+			if (outcomes[index] == CommandOutcome::Failed) {
+				printLogfln("Reolink: %s refused on channel %u", expectedCommand, commands[index].channel);
+			}
+			index += 1;
+		}
+
+		// The NVR answered
 		return true;
 	}
 }
 
-// Setup the Reolink integration and check for missing credentials
+// Setup the Reolink integration, check the credentials and try a first login
 ReolinkSetupResult setupReolink() {
 	// Check if the required Reolink credentials are configured
 	if (!hasReolinkCredentials()) {
@@ -388,55 +436,109 @@ ReolinkSetupResult setupReolink() {
 	sessionToken = "";
 	tokenExpiryTimeMs = 0;
 
-	// All OK, return Ready if the credentials are present
-	printLogln("Reolink configured.");
+	// Without Wi-Fi the NVR can't be checked yet
+	if (!isWiFiConnected()) {
+		printLogln("Reolink configured, NVR not checked (no Wi-Fi).");
+		showReolinkStatus("NVR Configured", "Wi-Fi pending");
+		delay(config::SHOW_DISPLAY_MESSAGE_MS);
+		return ReolinkSetupResult::Ready;
+	}
+
+	// Log in once to check the NVR and the credentials (the login shows its own errors)
+	if (!ensureReolinkToken()) {
+		printLogln("Reolink configured, but the first login failed.");
+		delay(config::SHOW_DISPLAY_MESSAGE_MS);
+		return ReolinkSetupResult::Ready;
+	}
+
+	// All OK, the NVR answered and accepted the credentials
+	printLogln("Reolink linked.");
 	showReolinkStatus("NVR Linked", "Ready to mute!");
 	return ReolinkSetupResult::Ready;
 }
 
 // Disable notifications and recording for all active channels
-bool disableReolinkNotificationsAndRecording() {
+ReolinkMuteResult disableReolinkNotificationsAndRecording() {
 	uint8_t channels[config::REOLINK_MAX_CHANNELS] = {0};
 	uint8_t channelCount = 0;
+	ChannelCommand commands[MAX_CHANNEL_COMMAND_COUNT];
+	CommandOutcome outcomes[MAX_CHANNEL_COMMAND_COUNT];
 
 	// Refuse to run if the feature was not configured
 	if (!hasReolinkCredentials()) {
 		printLogln("Reolink disable skipped because credentials are missing.");
 		showReolinkStatus("NVR Needed", "Add credentials!");
-		return false;
+		return ReolinkMuteResult::Failed;
 	}
 
-	// Get the list of currently active channels from the NVR
-	if (!getActiveChannels(channels, channelCount) || channelCount == 0) {
+	// Without Wi-Fi the NVR can't be reached
+	if (!isWiFiConnected()) {
+		printLogln("Reolink disable skipped because Wi-Fi is offline.");
+		showReolinkStatus("Wi-Fi Offline", "Try again!");
+		delay(config::SHOW_DISPLAY_MESSAGE_MS);
+		return ReolinkMuteResult::Failed;
+	}
+
+	// Get the list of currently active channels (the request shows its own error, so keep it on screen)
+	if (!getActiveChannels(channels, channelCount)) {
+		printLogln("Reolink: failed to retrieve active channels.");
+		delay(config::SHOW_DISPLAY_MESSAGE_MS);
+		return ReolinkMuteResult::Failed;
+	}
+
+	// Build one command per setting, and stop if no camera is online
+	const uint8_t commandCount = buildMuteCommands(channels, channelCount, commands);
+	if (commandCount == 0) {
 		printLogln("Reolink: no active channels to mute.");
 		showReolinkStatus("No Cameras", "Check NVR!");
 		delay(config::SHOW_DISPLAY_MESSAGE_MS);
-		return false;
+		return ReolinkMuteResult::Failed;
 	}
 
-	// Remember the channels before muting them (so a failed request or a reboot can still restore them)
-	saveMutedChannelMask(getMutedChannelMask() | buildChannelMask(channels, channelCount));
+	// Remember the settings before muting them (so a failed request or a reboot can still restore them)
+	saveMutedChannelMasks(addCommandsToMasks(getMutedChannelMasks(), commands, commandCount));
 
-	// Apply the disabled state to the active channels
-	if (!applyChannelsState(channels, channelCount, false)) {
-		return false;
+	// Send the mute commands
+	if (!applyChannelCommands(commands, commandCount, false, outcomes)) {
+		return ReolinkMuteResult::Failed;
+	}
+
+	// Forget the settings the NVR refused to mute (they were never changed)
+	saveMutedChannelMasks(applyMuteOutcomes(getMutedChannelMasks(), commands, outcomes, commandCount));
+
+	// Report a mute where nothing was confirmed
+	const uint8_t succeededCount = countCommandOutcomes(outcomes, commandCount, CommandOutcome::Succeeded);
+	if (succeededCount == 0) {
+		printLogln("Reolink: the NVR did not confirm any mute command.");
+		showReolinkStatus("Mute Refused", "Check NVR!");
+		delay(config::SHOW_DISPLAY_MESSAGE_MS);
+		return ReolinkMuteResult::Failed;
+	}
+
+	// Report a mute where only some settings were confirmed
+	if (succeededCount < commandCount) {
+		printLogfln("Reolink: %u of %u mute commands confirmed.", succeededCount, commandCount);
+		showReolinkStatus("Partly Muted!", "Some cams failed");
+		delay(config::SHOW_DISPLAY_MESSAGE_MS);
+		return ReolinkMuteResult::PartiallyMuted;
 	}
 
 	// All OK, notifications and recording are now disabled
 	printLogln("Reolink notifications and recording disabled.");
 	showReolinkStatus("Cameras Muted!", "Exit safely!");
 	delay(config::SHOW_DISPLAY_MESSAGE_MS);
-	return true;
+	return ReolinkMuteResult::Muted;
 }
 
-// Restore notifications and recording for the muted channels that are online
+// Restore notifications and recording for the muted settings of the online channels
 ReolinkRestoreResult restoreReolinkNotificationsAndRecording() {
 	uint8_t channels[config::REOLINK_MAX_CHANNELS] = {0};
 	uint8_t channelCount = 0;
-	const uint32_t mutedChannelMask = getMutedChannelMask();
+	ChannelCommand commands[MAX_CHANNEL_COMMAND_COUNT];
+	CommandOutcome outcomes[MAX_CHANNEL_COMMAND_COUNT];
 
 	// Nothing to restore
-	if (mutedChannelMask == 0) return ReolinkRestoreResult::Restored;
+	if (!hasMutedChannels(getMutedChannelMasks())) return ReolinkRestoreResult::Restored;
 
 	// Refuse to run if the feature was not configured
 	if (!hasReolinkCredentials()) {
@@ -445,33 +547,43 @@ ReolinkRestoreResult restoreReolinkNotificationsAndRecording() {
 		return ReolinkRestoreResult::Failed;
 	}
 
-	// Get the list of currently active channels from the NVR
-	if (!getActiveChannels(channels, channelCount)) {
-		printLogln("Reolink: failed to retrieve active channels.");
+	// Without Wi-Fi the NVR can't be reached
+	if (!isWiFiConnected()) {
+		printLogln("Reolink restore skipped because Wi-Fi is offline.");
+		showReolinkStatus("Wi-Fi Offline", "Will retry");
+		delay(config::SHOW_DISPLAY_MESSAGE_MS);
 		return ReolinkRestoreResult::Failed;
 	}
 
-	// Keep only the muted channels that are online now
-	uint8_t restoreChannels[config::REOLINK_MAX_CHANNELS] = {0};
-	uint8_t restoreChannelCount = 0;
-	for (uint8_t index = 0; index < channelCount; index += 1) {
-		if ((mutedChannelMask & (1UL << channels[index])) != 0) {
-			restoreChannels[restoreChannelCount] = channels[index];
-			restoreChannelCount += 1;
-		}
+	// Get the list of currently active channels (the request shows its own error, so keep it on screen)
+	if (!getActiveChannels(channels, channelCount)) {
+		printLogln("Reolink: failed to retrieve active channels.");
+		delay(config::SHOW_DISPLAY_MESSAGE_MS);
+		return ReolinkRestoreResult::Failed;
 	}
 
-	// Restore the online muted channels and forget them once the NVR confirms
-	if (restoreChannelCount > 0) {
-		if (!applyChannelsState(restoreChannels, restoreChannelCount, true)) {
+	// Restore the muted settings of the online channels
+	const uint8_t commandCount = buildRestoreCommands(channels, channelCount, getMutedChannelMasks(), commands);
+	if (commandCount > 0) {
+		// Send the restore commands
+		if (!applyChannelCommands(commands, commandCount, true, outcomes)) {
 			return ReolinkRestoreResult::Failed;
 		}
-		saveMutedChannelMask(mutedChannelMask & ~buildChannelMask(restoreChannels, restoreChannelCount));
+
+		// Forget the settings the NVR confirmed as restored
+		saveMutedChannelMasks(applyRestoreOutcomes(getMutedChannelMasks(), commands, outcomes, commandCount));
+
+		// Any setting not confirmed is still muted, so retry later
+		if (countCommandOutcomes(outcomes, commandCount, CommandOutcome::Succeeded) < commandCount) {
+			printLogln("Reolink: some restore commands were not confirmed, will retry.");
+			return ReolinkRestoreResult::Failed;
+		}
 	}
 
-	// Muted channels that are offline right now stay pending for a later retry
-	if (getMutedChannelMask() != 0) {
-		printLogfln("Reolink: muted channels still offline (mask 0x%08lX), will retry.", static_cast<unsigned long>(getMutedChannelMask()));
+	// Muted settings of offline channels stay pending for a later retry
+	const MutedChannelMasks remainingMasks = getMutedChannelMasks();
+	if (hasMutedChannels(remainingMasks)) {
+		printLogfln("Reolink: muted channels still offline (push 0x%08lX, recording 0x%08lX), will retry.", static_cast<unsigned long>(remainingMasks.pushChannelMask), static_cast<unsigned long>(remainingMasks.recordingChannelMask));
 		return ReolinkRestoreResult::PartiallyRestored;
 	}
 
@@ -482,5 +594,5 @@ ReolinkRestoreResult restoreReolinkNotificationsAndRecording() {
 
 // Check whether some channels are still muted and need to be restored
 bool hasPendingReolinkRestore() {
-	return getMutedChannelMask() != 0;
+	return hasMutedChannels(getMutedChannelMasks());
 }

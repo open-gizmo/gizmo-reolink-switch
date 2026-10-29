@@ -28,6 +28,7 @@ namespace config {
 	extern const uint32_t WIFI_CONNECT_RETRY_DELAY_MS;
 	extern const uint32_t REOLINK_HTTP_TIMEOUT_MS;
 	extern const uint32_t REOLINK_RESTORE_RETRY_MS;
+	extern const uint32_t REOLINK_LOGIN_PAUSE_MS;
 	extern const uint32_t WIFI_CONNECT_TIMEOUT_MS;
 	extern const uint32_t WIFI_RECONNECT_INTERVAL_MS;
 

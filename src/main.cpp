@@ -110,12 +110,13 @@ namespace {
 				break;
 
 			// Handle the start of a countdown timer
-			case MenuEvent::TimerStarted:
+			case MenuEvent::TimerStarted: {
 				// Additional feedback
 				singleBuzz(config::SHORT_BUZZ_MS);
 
 				// Attempt to disable Reolink notifications and recording when the timer starts
-				if (!disableReolinkNotificationsAndRecording()) {
+				const ReolinkMuteResult muteResult = disableReolinkNotificationsAndRecording();
+				if (muteResult == ReolinkMuteResult::Failed) {
 					printLogln("Failed to disable Reolink notifications and recording. Cancelling timer start.");
 					stopTimer();
 					displayShowScreen("Quiet Mode Fail!", "Try again!");
@@ -130,12 +131,18 @@ namespace {
 					break;
 				}
 
+				// Warn when only some settings could be muted (the countdown still runs, to restore them at the end)
+				if (muteResult == ReolinkMuteResult::PartiallyMuted) {
+					doubleBuzz(config::SHORT_BUZZ_MS);
+				}
+
 				// Start the countdown now that the cameras are muted (so the network calls don't eat into it)
 				restartTimerCountdown();
 				printLogln("Timer started");
 				printMenuStatus();
 				singleBuzz(config::LONG_BUZZ_MS);
 				break;
+			}
 
 			// Handle a countdown timer tick
 			case MenuEvent::TimerTick:
