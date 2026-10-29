@@ -198,7 +198,7 @@ The firmware is split into focused modules under `src/`:
 - 💾 `storage/` saves the muted push and recording settings in NVS so a reboot can't leave the cameras muted.
 - 🧮 `channels/` keeps track of which setting is muted on which channel, from the answer to each NVR command.
 - 🎥 `reolink/` authenticates against the NVR and toggles notifications and recording.
-- 🧾 `serial/` handles development logs when dev mode is enabled.
+- 🧾 `serial/` turns development logs on in dev mode (logging itself comes from the shared [gizmo-common](https://github.com/open-gizmo/gizmo-common) library, like the `MM:SS` formatting).
 - ⚙️ `config/` centralizes pins, timing values, credentials, and display settings.
 
 ### 🎥 Reolink integration

@@ -1,8 +1,8 @@
+#include <gizmo/format.h>
 #include "config/config.h"
 #include "button/button.h"
 #include "buzzer/buzzer.h"
 #include "display/display.h"
-#include "format/format.h"
 #include "menu/menu.h"
 #include "reolink/reolink.h"
 #include "serial/serial.h"
@@ -19,15 +19,15 @@ namespace {
 
 	// Print the current timer state to the serial console
 	void printMenuStatus() {
-		char timeBuffer[DURATION_TEXT_SIZE] = {0};
-		char detailLine[sizeof("Mute for ") + DURATION_TEXT_SIZE] = {0}; // Fits any duration (the LCD crops to its width, and a native test checks the real lines fit)
+		char timeBuffer[gizmo::DURATION_TEXT_SIZE] = {0};
+		char detailLine[sizeof("Mute for ") + gizmo::DURATION_TEXT_SIZE] = {0}; // Fits any duration (the LCD crops to its width, and a native test checks the real lines fit)
 
 		// Format the remaining time for display
 		printLogf("%s\n", getMenuDisplayText());
 
 		// Show the current timer state on the LCD
 		if (isTimerRunning()) {
-			formatDuration(getRemainingSeconds(), timeBuffer, sizeof(timeBuffer));
+			gizmo::formatDuration(getRemainingSeconds(), timeBuffer, sizeof(timeBuffer));
 			snprintf(detailLine, sizeof(detailLine), "%s left", timeBuffer);
 			displayShowScreen("Alerts OFF", detailLine);
 			return;
@@ -46,7 +46,7 @@ namespace {
 		}
 
 		// Show the selected duration when idle
-		formatDuration(getSelectedDurationSeconds(), timeBuffer, sizeof(timeBuffer));
+		gizmo::formatDuration(getSelectedDurationSeconds(), timeBuffer, sizeof(timeBuffer));
 		snprintf(detailLine, sizeof(detailLine), "Mute for %s", timeBuffer);
 		displayShowScreen("Hold to mute", detailLine);
 	}

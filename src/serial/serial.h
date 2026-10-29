@@ -2,29 +2,16 @@
 #define SERIAL_H
 
 #include <Arduino.h>
+#include <gizmo/log.h>
 #include "config/config.h"
 
-// Init serial
+// Init serial (logging is on in dev mode only)
 void initSerial();
 
-// Print log
-template <typename T>
-inline void printLog(T message) {
-	if (config::DEVMODE)
-		Serial.print(message);
-}
-
-// Print log with newline
-template <typename T>
-inline void printLogln(T message) {
-	if (config::DEVMODE)
-		Serial.println(message);
-}
-
-// Printf-style debug print with format string (the compiler checks the arguments against the format)
-void printLogf(const char *format, ...) __attribute__((format(printf, 1, 2)));
-
-// Printf-style debug print with format string and newline (the compiler checks the arguments against the format)
-void printLogfln(const char *format, ...) __attribute__((format(printf, 1, 2)));
+// Logging comes from gizmo-common
+using gizmo::printLog;
+using gizmo::printLogln;
+using gizmo::printLogf;
+using gizmo::printLogfln;
 
 #endif
