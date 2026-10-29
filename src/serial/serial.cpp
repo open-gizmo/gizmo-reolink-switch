@@ -3,7 +3,7 @@
 // Init serial
 void initSerial() {
 	if (config::DEVMODE) {
-		Serial.begin(9600);
+		Serial.begin(115200);
 		while (!Serial) {
 			delay(10);
 		}
