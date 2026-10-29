@@ -20,7 +20,7 @@ namespace {
 	// Print the current timer state to the serial console
 	void printMenuStatus() {
 		char timeBuffer[DURATION_TEXT_SIZE] = {0};
-		char detailLine[17] = {0};
+		char detailLine[sizeof("Mute for ") + DURATION_TEXT_SIZE] = {0}; // Fits any duration (the LCD crops to its width, and a native test checks the real lines fit)
 
 		// Format the remaining time for display
 		printLogf("%s\n", getMenuDisplayText());

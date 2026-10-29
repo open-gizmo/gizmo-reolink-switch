@@ -21,24 +21,10 @@ inline void printLogln(T message) {
 		Serial.println(message);
 }
 
-// Printf-style debug print with format string
-template <typename... Args>
-inline void printLogf(const char *format, Args... args) {
-	if (config::DEVMODE) {
-		static char buffer[256];
-		snprintf(buffer, sizeof(buffer), format, args...);
-		Serial.print(buffer);
-	}
-}
+// Printf-style debug print with format string (the compiler checks the arguments against the format)
+void printLogf(const char *format, ...) __attribute__((format(printf, 1, 2)));
 
-// Printf-style debug print with format string and newline
-template <typename... Args>
-inline void printLogfln(const char *format, Args... args) {
-	if (config::DEVMODE) {
-		static char buffer[256];
-		snprintf(buffer, sizeof(buffer), format, args...);
-		Serial.println(buffer);
-	}
-}
+// Printf-style debug print with format string and newline (the compiler checks the arguments against the format)
+void printLogfln(const char *format, ...) __attribute__((format(printf, 1, 2)));
 
 #endif
