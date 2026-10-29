@@ -218,6 +218,16 @@ The firmware mutes the active channels when quiet mode starts and turns them bac
 
 The LCD intentionally shows concise, human-friendly screens rather than raw log output. Serial logs stay verbose for debugging, while the display stays simple and readable for everyday use.
 
+### 🧪 Tests
+
+The hardware-free logic is tested on your computer, no board needed:
+
+```bash
+pio test -e native
+```
+
+The tests live in [test/](test/). They build the logic modules against a small fake `Arduino.h` ([test/stubs/Arduino.h](test/stubs/Arduino.h)) whose `millis()` is a clock the tests control, so they can fast-forward the timer and even cross a `millis()` rollover instantly.
+
 <a id="configuration"></a>
 ## ⚙️ Configuration
 
