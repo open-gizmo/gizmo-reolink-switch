@@ -65,13 +65,15 @@ namespace {
 			return;
 		}
 
-		// Clear the physical display before rendering the new content
-		display.clear();
-
 		// Iterate through each active display row and write the corresponding line buffer to the display
 		for (uint8_t index = 0; index < activeDisplayRows; index += 1) {
 			display.setCursor(0, index);
 			display.print(displayLines[index]);
+
+			// Pad the rest of the row with spaces (overwriting old text without a clear, which makes the LCD flicker)
+			for (size_t column = strlen(displayLines[index]); column < activeDisplayColumns; column += 1) {
+				display.write(' ');
+			}
 		}
 	}
 
@@ -93,6 +95,18 @@ namespace {
 		// Reset the column index to the start of the new line
 		currentColumnIndex = 0;
 		clearLine(currentLineIndex);
+	}
+
+	// Clear the internal line buffer and reset the cursor without touching the physical display
+	void resetDisplayBuffer() {
+		// Clear each line in the internal buffer
+		for (uint8_t index = 0; index < activeDisplayRows; index += 1) {
+			clearLine(index);
+		}
+
+		// Reset the current line and column indices to the start of the display
+		currentLineIndex = 0;
+		currentColumnIndex = 0;
 	}
 
 	// Append one character to the current line, wrapping when needed
@@ -166,14 +180,7 @@ bool isDisplayReady() {
 
 // Clear all text currently shown on the display
 void clearDisplayMessages() {
-	// Clear each line in the internal buffer
-	for (uint8_t index = 0; index < activeDisplayRows; index += 1) {
-		clearLine(index);
-	}
-
-	// Reset the current line and column indices to the start of the display
-	currentLineIndex = 0;
-	currentColumnIndex = 0;
+	resetDisplayBuffer();
 	renderDisplay();
 }
 
@@ -184,8 +191,8 @@ void displayShowScreen(const char *line1, const char *line2) {
 		return;
 	}
 
-	// Clear the display and set the specified lines in the internal buffer
-	clearDisplayMessages();
+	// Reset the buffer (without rendering, so the screen is drawn once) and set the specified lines
+	resetDisplayBuffer();
 	setDisplayLine(0, line1);
 
 	// If the display has more than one row, set the second line in the internal buffer

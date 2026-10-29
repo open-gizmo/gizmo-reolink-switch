@@ -44,7 +44,7 @@ The firmware runs on an ESP32 and gives you a compact standalone interface:
 - Short press the button to choose a mute duration.
 - Long press to start the countdown.
 - The ESP32 connects to WiFi and tells the Reolink NVR to disable notifications and recording on active channels.
-- When the timer finishes, or when you cancel it, the firmware restores the original monitoring state.
+- When the timer finishes, or when you cancel it, the firmware turns notifications and recording back on for the channels it muted.
 
 The device also provides:
 
@@ -70,12 +70,13 @@ The device also provides:
 - One-button interface with short-press and long-press actions.
 - Smart timer selection: `+1 minute` below 5 minutes, then `+5 minutes` increments.
 - Reolink integration using direct API calls from the ESP32.
-- Automatic restore of notifications and recording when the timer ends.
+- Automatic restore of notifications and recording when the timer ends, with retries if the NVR is unreachable or a muted camera is offline.
+- Muted channels are saved in flash, so the cameras are restored even if the device reboots while they are muted.
 - Friendly 16x2 I2C LCD screens optimized for quick readability.
 - Buzzer cues for selection, start, countdown warning, completion, and cancellation.
 - WiFi and Reolink credentials managed through `platformio_secrets.ini`.
 - Optional development logging controlled through `PIO_DEV_MODE`.
-- GitHub Actions release workflow for automatic tagged releases on `main` pushes.
+- GitHub Actions release workflow for tagged releases, started manually from the Actions tab.
 
 <a id="architecture"></a>
 ## 🏗️ Architecture
@@ -92,7 +93,8 @@ Gizmo Reolink Switch is built around three cooperating parts:
 2. The firmware updates the menu state, shows the current status on the LCD, and plays buzzer feedback.
 3. When quiet mode starts, the ESP32 authenticates with the Reolink NVR and disables notifications and recording on active channels.
 4. While the timer runs, the firmware keeps the display updated and warns near the end with short buzzer cues.
-5. When the timer completes or is cancelled, the ESP32 restores the Reolink state and returns to the idle screen.
+5. When the timer completes or is cancelled, the ESP32 turns notifications and recording back on for the muted channels and returns to the idle screen.
+6. If the restore fails, or a muted camera is offline, the idle screen shows `Alerts Still OFF` and the firmware retries every minute (hold the button to retry right away).
 
 <a id="quick-start"></a>
 ## 🚀 Quick Start
@@ -192,7 +194,8 @@ The firmware is split into focused modules under `src/`:
 - 🔔 `buzzer/` drives audible feedback.
 - 📺 `display/` manages the LCD screens and layout.
 - ⏱️ `menu/` implements timer selection and countdown state.
-- 📡 `wifi/` connects the ESP32 to the local network.
+- 📡 `wifi/` connects the ESP32 to the local network and reconnects when the connection drops.
+- 💾 `storage/` saves the muted channels in NVS so a reboot can't leave the cameras muted.
 - 🎥 `reolink/` authenticates against the NVR and toggles notifications and recording.
 - 🧾 `serial/` handles development logs when dev mode is enabled.
 - ⚙️ `config/` centralizes pins, timing values, credentials, and display settings.
@@ -209,7 +212,7 @@ Current implementation highlights:
 - Active-channel discovery.
 - Batch updates for notifications and recording state.
 
-The firmware is designed to mute active channels when quiet mode starts and restore them afterward.
+The firmware mutes the active channels when quiet mode starts and turns them back on afterward. Restoring always sets notifications and recording to enabled: channels where you had disabled them on purpose come back enabled.
 
 ### 🎨 User interface
 
@@ -259,7 +262,7 @@ The main shared constants live in [src/config/config.h](src/config/config.h) and
 - LCD powers on but shows no text: verify SDA/SCL wiring and confirm the backpack address matches the configured `0x27`.
 - Button does nothing: verify the wiring against the input mode expected by the firmware.
 - Quiet mode does not start: check WiFi connectivity and Reolink credentials first.
-- NVR state does not restore: enable `PIO_DEV_MODE=1` and inspect the serial logs.
+- NVR state does not restore: the LCD shows `Alerts Still OFF` and the firmware keeps retrying. Hold the button to retry right away, or enable `PIO_DEV_MODE=1` and inspect the serial logs.
 
 <a id="license"></a>
 ## 📄 License

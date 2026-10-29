@@ -48,6 +48,9 @@ namespace config {
 	const uint32_t BUTTON_LONG_PRESS_DELAY_MS = 700;
 	const uint32_t WIFI_CONNECT_RETRY_DELAY_MS = 500;
 	const uint32_t REOLINK_HTTP_TIMEOUT_MS = 10000;
+	const uint32_t REOLINK_RESTORE_RETRY_MS = 60000; // Retry a failed or partial restore every minute
+	const uint32_t WIFI_CONNECT_TIMEOUT_MS = 20000; // Stop waiting at boot and keep retrying in the background
+	const uint32_t WIFI_RECONNECT_INTERVAL_MS = 30000; // Time without Wi-Fi before forcing a reconnect
 
 	// Timer duration constants
 	const uint32_t TIMER_SHORT_DURATION_STEP_SECONDS = 1UL * 60UL;

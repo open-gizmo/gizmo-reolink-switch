@@ -13,3 +13,10 @@ void singleBuzz(uint32_t durationMs) {
 	delay(durationMs);
 	digitalWrite(config::BUZZER_PIN, LOW);
 }
+
+// Double buzz (two short beeps with a pause, used as a warning)
+void doubleBuzz(uint32_t durationMs) {
+	singleBuzz(durationMs);
+	delay(durationMs * 2); // Pause between the beeps so they sound distinct
+	singleBuzz(durationMs);
+}

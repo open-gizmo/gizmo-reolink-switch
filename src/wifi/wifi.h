@@ -5,10 +5,12 @@
 
 enum class WiFiSetupResult : uint8_t {
 	Connected,
+	ConnectTimeout,
 	MissingCredentials,
 };
 
 WiFiSetupResult setupWiFi();
+void manageWiFiConnection();
 bool isWiFiConnected();
 
 #endif

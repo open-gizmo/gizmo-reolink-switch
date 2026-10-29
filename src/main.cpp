@@ -5,11 +5,16 @@
 #include "menu/menu.h"
 #include "reolink/reolink.h"
 #include "serial/serial.h"
+#include "storage/storage.h"
 #include "wifi/wifi.h"
 
 namespace {
 	// If the program is in an idle state where it cannot operate
 	bool programIsIdle = false;
+
+	// Restore retry state (used when a restore fails or some muted cameras are offline)
+	bool shouldRetryRestoreNow = false;
+	uint32_t lastRestoreAttemptTimeMs = 0;
 
 	// Format seconds as MM:SS for the LCD
 	void formatDisplayTime(uint32_t totalSeconds, char *buffer, size_t bufferSize) {
@@ -34,7 +39,13 @@ namespace {
 			return;
 		}
 
-		// Show the selected duration when idle
+		// Warn when some cameras could not be restored yet
+		if (getSelectedDurationSeconds() == 0 && hasPendingReolinkRestore()) {
+			displayShowScreen("Alerts Still OFF", "Hold to retry");
+			return;
+		}
+
+		// Show the welcome screen when idle
 		if (getSelectedDurationSeconds() == 0) {
 			displayShowScreen("Reolink Switch", "Tap to start");
 			return;
@@ -44,6 +55,55 @@ namespace {
 		formatDisplayTime(getSelectedDurationSeconds(), timeBuffer, sizeof(timeBuffer));
 		snprintf(detailLine, sizeof(detailLine), "Mute for %s", timeBuffer);
 		displayShowScreen("Hold to mute", detailLine);
+	}
+
+	// Restore the muted cameras and show the real outcome on the LCD (background retries don't beep on failure)
+	void restoreAlerts(const char *successTitle, bool isBackgroundRetry = false) {
+		// Remember the attempt for the retry timer
+		lastRestoreAttemptTimeMs = millis();
+		shouldRetryRestoreNow = false;
+
+		// Attempt the restore and report its outcome
+		switch (restoreReolinkNotificationsAndRecording()) {
+			// All muted cameras are back on
+			case ReolinkRestoreResult::Restored:
+				printLogln("Alerts restored. Returning to idle state.");
+				displayShowScreen(successTitle, "Alerts restored!");
+				singleBuzz(config::LONG_BUZZ_MS);
+				break;
+
+			// Some muted cameras are offline and will be restored when they come back
+			case ReolinkRestoreResult::PartiallyRestored:
+				printLogln("Some muted cameras are offline. Retrying later.");
+				displayShowScreen("Cam Offline!", "Will retry");
+				if (!isBackgroundRetry) doubleBuzz(config::SHORT_BUZZ_MS);
+				break;
+
+			// The NVR could not be reached or rejected the request
+			case ReolinkRestoreResult::Failed:
+			default:
+				printLogln("Failed to restore Reolink notifications and recording. Retrying later.");
+				displayShowScreen("Restore Failed", "Will retry");
+				if (!isBackgroundRetry) doubleBuzz(config::SHORT_BUZZ_MS);
+				break;
+		}
+
+		// Return to the idle screen
+		delay(config::SHOW_DISPLAY_MESSAGE_MS);
+		printMenuStatus();
+	}
+
+	// Retry a pending restore in the background while the timer is idle
+	void manageRestoreRetries() {
+		// Only retry while idle, with Wi-Fi, and with cameras still muted
+		if (isTimerRunning() || !isWiFiConnected() || !hasPendingReolinkRestore()) return;
+
+		// Wait for the retry interval unless a retry was requested right away
+		if (!shouldRetryRestoreNow && millis() - lastRestoreAttemptTimeMs < config::REOLINK_RESTORE_RETRY_MS) return;
+
+		// Retry the restore
+		printLogln("Retrying pending Reolink restore...");
+		restoreAlerts("Welcome Back", true);
 	}
 
 	// React to timer menu events with logging and buzzer feedback
@@ -63,13 +123,21 @@ namespace {
 				// Attempt to disable Reolink notifications and recording when the timer starts
 				if (!disableReolinkNotificationsAndRecording()) {
 					printLogln("Failed to disable Reolink notifications and recording. Cancelling timer start.");
+					stopTimer();
 					displayShowScreen("Quiet Mode Fail!", "Try again!");
 					delay(config::SHOW_DISPLAY_MESSAGE_MS);
-					handleMenuEvent(activateOrCancelTimer());
+
+					// Restore any camera the failed request may have muted
+					if (hasPendingReolinkRestore()) {
+						restoreAlerts("Mute Cancelled");
+					} else {
+						printMenuStatus();
+					}
 					break;
 				}
 
-				// Start the timer and provide feedback
+				// Start the countdown now that the cameras are muted (so the network calls don't eat into it)
+				restartTimerCountdown();
 				printLogln("Timer started");
 				printMenuStatus();
 				singleBuzz(config::LONG_BUZZ_MS);
@@ -88,37 +156,16 @@ namespace {
 
 			// Handle the completion of a countdown timer
 			case MenuEvent::TimerCompleted:
-				// Attempt to restore Reolink notifications and recording when the timer completes
-				if (!restoreReolinkNotificationsAndRecording()) {
-					printLogln("Failed to restore Reolink notifications and recording after timer completion.");
-					displayShowScreen("Restore Failed", "Check NVR!");
-				}
-
-				// Finish the timer and return to idle state
-				printLogln("Timer completed. Returning to idle state.");
-				displayShowScreen("Time Is Up", "Alerts restored!");
-				delay(config::SHOW_DISPLAY_MESSAGE_MS);
-				printMenuStatus();
-				singleBuzz(config::LONG_BUZZ_MS);
+				printLogln("Timer completed.");
+				restoreAlerts("Time Is Up");
 				break;
 
 			// Handle the cancellation of a countdown timer
 			case MenuEvent::TimerCancelled:
 				// Additional feedback
 				singleBuzz(config::SHORT_BUZZ_MS);
-
-				// Attempt to restore Reolink notifications and recording when the timer is cancelled
-				if (!restoreReolinkNotificationsAndRecording()) {
-					printLogln("Failed to restore Reolink notifications and recording after cancellation.");
-					displayShowScreen("Restore Failed", "Check NVR!");
-				}
-
-				// Cancel the timer and return to idle state
-				printLogln("Timer cancelled. Returning to idle state.");
-				displayShowScreen("Welcome Back", "Alerts restored!");
-				delay(config::SHOW_DISPLAY_MESSAGE_MS);
-				printMenuStatus();
-				singleBuzz(config::LONG_BUZZ_MS);
+				printLogln("Timer cancelled.");
+				restoreAlerts("Welcome Back");
 				break;
 
 			// Handle no event
@@ -138,6 +185,13 @@ namespace {
 
 			// Handle a long button press
 			case ButtonEvent::LongPress:
+				// Retry a pending restore right away when no duration is selected
+				if (!isTimerRunning() && getSelectedDurationSeconds() == 0 && hasPendingReolinkRestore()) {
+					restoreAlerts("Welcome Back");
+					break;
+				}
+
+				// Otherwise start or cancel the timer
 				handleMenuEvent(activateOrCancelTimer());
 				break;
 
@@ -169,6 +223,10 @@ void setup() {
 	setupButton();
 	printLogln("Button initialized!");
 
+	// Init storage (loads the cameras still muted before the last reboot)
+	setupStorage();
+	printLogln("Storage initialized!");
+
 	// Connect WiFi
 	if (setupWiFi() == WiFiSetupResult::MissingCredentials) {
 		printLogln("Program halted. Configure WiFi credentials and reboot.");
@@ -188,6 +246,12 @@ void setup() {
 	// Init menu
 	setupMenu();
 	printLogln("Menu initialized!");
+
+	// Restore the cameras right away if the device rebooted while they were muted
+	if (hasPendingReolinkRestore()) {
+		printLogln("Cameras were still muted before the last reboot. Restoring them now.");
+		shouldRetryRestoreNow = true;
+	}
 	printLogln("Short press: add 1 minute below 5 minutes, otherwise add 5 minutes");
 	printLogln("Long press: start or cancel timer");
 	printMenuStatus();
@@ -201,6 +265,9 @@ void loop() {
 		return;
 	}
 
+	// Keep the Wi-Fi connection alive
+	manageWiFiConnection();
+
 	// Poll the button for events
 	const ButtonEvent buttonEvent = pollButtonEvent();
 
@@ -211,4 +278,7 @@ void loop() {
 
 	// Update the menu state and handle any events
 	handleMenuEvent(updateMenu());
+
+	// Retry restoring cameras that are still muted
+	manageRestoreRetries();
 }

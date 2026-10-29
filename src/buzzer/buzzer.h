@@ -5,5 +5,6 @@
 
 void setupBuzzer();
 void singleBuzz(uint32_t durationMs = 800);
+void doubleBuzz(uint32_t durationMs = 50);
 
 #endif

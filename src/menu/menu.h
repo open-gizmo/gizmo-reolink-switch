@@ -15,6 +15,8 @@ enum class MenuEvent : uint8_t {
 void setupMenu();
 MenuEvent increaseSelectedDuration();
 MenuEvent activateOrCancelTimer();
+void stopTimer();
+void restartTimerCountdown();
 MenuEvent updateMenu();
 bool isTimerRunning();
 uint32_t getSelectedDurationSeconds();

@@ -7,8 +7,12 @@
 #include "config/config.h"
 #include "display/display.h"
 #include "serial/serial.h"
+#include "storage/storage.h"
 
 namespace {
+	// Muted channels are saved as a 32-bit mask, one bit per channel
+	constexpr uint8_t MAX_TRACKED_CHANNEL_COUNT = 32;
+
 	// Keep the current session token and its expiry time in memory
 	String sessionToken;
 	uint32_t tokenExpiryTimeMs = 0;
@@ -268,7 +272,7 @@ namespace {
 		return executeReolinkRequest(command, requestDoc, responseDoc);
 	}
 
-	// Query the NVR and keep only currently online channels
+	// Query the NVR and keep only currently online channels (the list can be empty)
 	bool getActiveChannels(uint8_t *channels, uint8_t &channelCount) {
 		// Create a JSON document for the request parameters
 		JsonDocument paramsDoc;
@@ -278,24 +282,47 @@ namespace {
 		JsonDocument responseDoc;
 
 		// Call the Reolink API to get the channel status and check for errors
+		channelCount = 0;
 		if (!callReolinkApi("GetChannelstatus", paramsDoc.as<JsonVariantConst>(), responseDoc)) {
 			return false;
 		}
 
 		// Get the array of channel status objects
-		channelCount = 0;
 		JsonArray statusArray = responseDoc[0]["value"]["status"].as<JsonArray>();
 
 		// Iterate through the status array and keep only online channels, up to the maximum allowed
 		for (JsonObject statusEntry : statusArray) {
-			if ((statusEntry["online"] | 0) == 1 && channelCount < config::REOLINK_MAX_CHANNELS) {
-				channels[channelCount] = static_cast<uint8_t>(statusEntry["channel"] | channelCount);
-				channelCount += 1;
+			if ((statusEntry["online"] | 0) != 1 || channelCount >= config::REOLINK_MAX_CHANNELS) {
+				continue;
 			}
+
+			// Skip channels that don't fit in the saved muted-channels mask
+			const uint8_t channel = static_cast<uint8_t>(statusEntry["channel"] | channelCount);
+			if (channel >= MAX_TRACKED_CHANNEL_COUNT) {
+				printLogfln("Reolink: channel %u is not supported and will be skipped", channel);
+				continue;
+			}
+
+			// Keep the online channel
+			channels[channelCount] = channel;
+			channelCount += 1;
 		}
 
-		// Return true if at least one active channel was found
-		return channelCount > 0;
+		// The API call succeeded (even if no channel is online)
+		return true;
+	}
+
+	// Build a bitmask with one bit per channel
+	uint32_t buildChannelMask(const uint8_t *channels, uint8_t channelCount) {
+		uint32_t channelMask = 0;
+
+		// Set the bit of each channel
+		for (uint8_t index = 0; index < channelCount; index += 1) {
+			channelMask |= 1UL << channels[index];
+		}
+
+		// Return the channel mask
+		return channelMask;
 	}
 
 	// Append one channel's push and recording commands to a shared batch request
@@ -319,36 +346,22 @@ namespace {
 		appendApiRequest(requestArray, "SetRecV20", recParams);
 	}
 
-	// Apply the requested notification and recording state to all active channels in a single batch
-	bool applyReolinkNotificationsAndRecordingState(bool enabled) {
-		uint8_t channels[config::REOLINK_MAX_CHANNELS] = {0};
-		uint8_t channelCount = 0;
-
-		// Get the list of currently active channels from the NVR
-		if (!getActiveChannels(channels, channelCount)) {
-			printLogln("Reolink: failed to retrieve active channels.");
-			showReolinkStatus("No Cameras", "Check NVR!");
-			delay(config::SHOW_DISPLAY_MESSAGE_MS);
-			return false;
-		}
-
-		// Get the response code from the API
+	// Apply the requested notification and recording state to the given channels in a single batch
+	bool applyChannelsState(const uint8_t *channels, uint8_t channelCount, bool enabled) {
 		JsonDocument requestDoc;
 		JsonArray requestArray = requestDoc.to<JsonArray>();
 
-		// Append the mute requests for each active channel to the batch request
+		// Append the mute requests for each channel to the batch request
 		for (uint8_t index = 0; index < channelCount; index += 1) {
 			appendChannelMuteRequests(requestArray, channels[index], enabled);
 		}
 
 		// Log the batch request and send it to the Reolink API
-		printLogfln("Reolink: sending batch request to turn %s notifications and recording for %u active channels...", enabled ? "on" : "off", channelCount);
+		printLogfln("Reolink: sending batch request to turn %s notifications and recording for %u channels...", enabled ? "on" : "off", channelCount);
 		showReolinkStatus(enabled ? "Quiet Mode OFF" : "Quiet Mode ON", enabled ? "Restoring alerts" : "Muting cameras");
 
-		// Create a JSON document for the response
-		JsonDocument responseDoc;
-
 		// Send the batch request to the Reolink API and check for errors
+		JsonDocument responseDoc;
 		if (!executeReolinkRequest("SetPushV20", requestDoc, responseDoc)) {
 			printLogfln("Reolink: failed to %s notifications and recording.", enabled ? "restore" : "disable");
 			showReolinkStatus("Camera Sync Fail", "Try again!");
@@ -356,13 +369,8 @@ namespace {
 			return false;
 		}
 
-		// Log the successful batch request and return true
-		printLogfln("Reolink: batch request sent successfully. Notifications and recording are now %s for %u active channels.", enabled ? "enabled" : "disabled", channelCount);
-		delay(config::SHOW_DISPLAY_MESSAGE_MS);
-		showReolinkStatus(enabled ? "Alerts Restored!" : "Cameras Muted!", enabled ? "Welcome back" : "Exit safely!");
-		delay(config::SHOW_DISPLAY_MESSAGE_MS);
-
-		// All OK, return true
+		// All OK
+		printLogfln("Reolink: notifications and recording are now %s for %u channels.", enabled ? "enabled" : "disabled", channelCount);
 		return true;
 	}
 }
@@ -388,6 +396,9 @@ ReolinkSetupResult setupReolink() {
 
 // Disable notifications and recording for all active channels
 bool disableReolinkNotificationsAndRecording() {
+	uint8_t channels[config::REOLINK_MAX_CHANNELS] = {0};
+	uint8_t channelCount = 0;
+
 	// Refuse to run if the feature was not configured
 	if (!hasReolinkCredentials()) {
 		printLogln("Reolink disable skipped because credentials are missing.");
@@ -395,8 +406,19 @@ bool disableReolinkNotificationsAndRecording() {
 		return false;
 	}
 
-	// Attempt to apply the disabled state to all active channels and check for errors
-	if (!applyReolinkNotificationsAndRecordingState(false)) {
+	// Get the list of currently active channels from the NVR
+	if (!getActiveChannels(channels, channelCount) || channelCount == 0) {
+		printLogln("Reolink: no active channels to mute.");
+		showReolinkStatus("No Cameras", "Check NVR!");
+		delay(config::SHOW_DISPLAY_MESSAGE_MS);
+		return false;
+	}
+
+	// Remember the channels before muting them (so a failed request or a reboot can still restore them)
+	saveMutedChannelMask(getMutedChannelMask() | buildChannelMask(channels, channelCount));
+
+	// Apply the disabled state to the active channels
+	if (!applyChannelsState(channels, channelCount, false)) {
 		return false;
 	}
 
@@ -407,23 +429,58 @@ bool disableReolinkNotificationsAndRecording() {
 	return true;
 }
 
-// Restore notifications and recording for all active channels
-bool restoreReolinkNotificationsAndRecording() {
+// Restore notifications and recording for the muted channels that are online
+ReolinkRestoreResult restoreReolinkNotificationsAndRecording() {
+	uint8_t channels[config::REOLINK_MAX_CHANNELS] = {0};
+	uint8_t channelCount = 0;
+	const uint32_t mutedChannelMask = getMutedChannelMask();
+
+	// Nothing to restore
+	if (mutedChannelMask == 0) return ReolinkRestoreResult::Restored;
+
 	// Refuse to run if the feature was not configured
 	if (!hasReolinkCredentials()) {
 		printLogln("Reolink restore skipped because credentials are missing.");
 		showReolinkStatus("NVR Needed", "Add credentials!");
-		return false;
+		return ReolinkRestoreResult::Failed;
 	}
 
-	// Attempt to apply the enabled state to all active channels and check for errors
-	if (!applyReolinkNotificationsAndRecordingState(true)) {
-		return false;
+	// Get the list of currently active channels from the NVR
+	if (!getActiveChannels(channels, channelCount)) {
+		printLogln("Reolink: failed to retrieve active channels.");
+		return ReolinkRestoreResult::Failed;
+	}
+
+	// Keep only the muted channels that are online now
+	uint8_t restoreChannels[config::REOLINK_MAX_CHANNELS] = {0};
+	uint8_t restoreChannelCount = 0;
+	for (uint8_t index = 0; index < channelCount; index += 1) {
+		if ((mutedChannelMask & (1UL << channels[index])) != 0) {
+			restoreChannels[restoreChannelCount] = channels[index];
+			restoreChannelCount += 1;
+		}
+	}
+
+	// Restore the online muted channels and forget them once the NVR confirms
+	if (restoreChannelCount > 0) {
+		if (!applyChannelsState(restoreChannels, restoreChannelCount, true)) {
+			return ReolinkRestoreResult::Failed;
+		}
+		saveMutedChannelMask(mutedChannelMask & ~buildChannelMask(restoreChannels, restoreChannelCount));
+	}
+
+	// Muted channels that are offline right now stay pending for a later retry
+	if (getMutedChannelMask() != 0) {
+		printLogfln("Reolink: muted channels still offline (mask 0x%08lX), will retry.", static_cast<unsigned long>(getMutedChannelMask()));
+		return ReolinkRestoreResult::PartiallyRestored;
 	}
 
 	// All OK, notifications and recording are now restored
 	printLogln("Reolink notifications and recording restored.");
-	showReolinkStatus("Alerts Restored!", "Welcome back");
-	delay(config::SHOW_DISPLAY_MESSAGE_MS);
-	return true;
+	return ReolinkRestoreResult::Restored;
+}
+
+// Check whether some channels are still muted and need to be restored
+bool hasPendingReolinkRestore() {
+	return getMutedChannelMask() != 0;
 }

@@ -76,6 +76,22 @@ MenuEvent activateOrCancelTimer() {
 	return MenuEvent::TimerStarted;
 }
 
+// Stop the timer without emitting an event (used when muting the cameras fails)
+void stopTimer() {
+	resetTimerState();
+}
+
+// Restart the running countdown from the full duration (so slow network calls don't eat into it)
+void restartTimerCountdown() {
+	// Ignore if the timer is not running
+	if (!timerRunning) return;
+
+	// Restart the countdown from now
+	countdownStartTimeMs = millis();
+	lastDisplayedRemainingSeconds = countdownDurationSeconds;
+	updateMenuDisplayText("Time remaining: ", countdownDurationSeconds);
+}
+
 // Update the timer state and emit events when the display changes
 MenuEvent updateMenu() {
 	// Ignore updates while the timer is not running
