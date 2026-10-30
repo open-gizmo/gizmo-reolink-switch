@@ -46,6 +46,7 @@ namespace config {
 	// Timing constants
 	const uint32_t BUTTON_DEBOUNCE_DELAY_MS = 40;
 	const uint32_t BUTTON_LONG_PRESS_DELAY_MS = 700;
+	const uint32_t BUTTON_BUSY_GAP_MS = 250; // Longer than this between two button polls means slow work (a request, a long beep), so a press made meanwhile is dropped
 	const uint32_t WIFI_CONNECT_RETRY_DELAY_MS = 500;
 	const uint32_t REOLINK_HTTP_TIMEOUT_MS = 10000;
 	const uint32_t REOLINK_RESTORE_RETRY_MS = 60000; // Retry a failed or partial restore every minute
@@ -65,6 +66,7 @@ namespace config {
 
 	// Reolink constants
 	const uint8_t REOLINK_MAX_CHANNELS = 16;
+	const uint32_t REOLINK_MAX_REPLY_BYTES = 16384; // NVR replies are a few KB, anything larger is refused before it eats the heap TLS needs
 
 	// Display constants
 	const uint32_t SHOW_DISPLAY_MESSAGE_MS = 1000;

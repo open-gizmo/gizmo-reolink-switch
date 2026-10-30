@@ -7,14 +7,12 @@
 #include "config/config.h"
 #include "display/display.h"
 #include "channels/channels.h"
+#include "reolink_protocol.h"
 #include "serial/serial.h"
 #include "storage/storage.h"
 #include "wifi/wifi.h"
 
 namespace {
-	// Reolink error code for a missing or expired session
-	constexpr int SESSION_EXPIRED_CODE = -6;
-
 	// How a request to the NVR ended
 	enum class RequestResult : uint8_t {
 		Ok,
@@ -29,6 +27,54 @@ namespace {
 	// Login pause after the NVR refuses a login (repeated wrong-password logins can lock the account)
 	bool isLoginPaused = false;
 	uint32_t loginPausedAtMs = 0;
+
+	// One HTTPS connection kept open for all the requests of a mute or restore, so they share a single TLS handshake
+	WiFiClientSecure secureClient;
+	HTTPClient http;
+
+	// Collects a reply body in a String, refusing anything past its size limit (so a broken reply can't eat the heap TLS needs)
+	class BoundedStringStream : public Stream {
+	public:
+		BoundedStringStream(String &output, size_t maxLength) : output(output), maxLength(maxLength) {}
+
+		size_t write(uint8_t value) override {
+			return write(&value, 1);
+		}
+
+		size_t write(const uint8_t *buffer, size_t size) override {
+			// Refuse the bytes past the limit (the HTTP client then stops the read and closes the connection)
+			if (output.length() + size > maxLength) {
+				setWriteError();
+				return 0;
+			}
+
+			// Append the bytes
+			output.concat(reinterpret_cast<const char *>(buffer), size);
+			return size;
+		}
+
+		// Nothing to read back (the body is read from the String)
+		int available() override { return 0; }
+		int read() override { return -1; }
+		int peek() override { return -1; }
+
+	private:
+		String &output;
+		size_t maxLength;
+	};
+
+	// Close the connection to the NVR (at the end of each mute or restore, so no idle TLS session holds memory)
+	void closeReolinkConnection() {
+		http.end();
+		secureClient.stop();
+	}
+
+	// Closes the NVR connection when a mute or restore returns, whatever path it takes
+	struct ReolinkConnectionScope {
+		~ReolinkConnectionScope() {
+			closeReolinkConnection();
+		}
+	};
 
 	// Show a short user-friendly NVR status on the LCD
 	void showReolinkStatus(const char *line1, const char *line2) {
@@ -87,7 +133,7 @@ namespace {
 		}
 
 		// If the token has expired or is about to expire, it needs to be refreshed
-		return static_cast<int32_t>(millis() - tokenExpiryTimeMs) >= 0;
+		return isTokenExpired(millis(), tokenExpiryTimeMs);
 	}
 
 	// Append one API command to a request array
@@ -98,32 +144,77 @@ namespace {
 		requestObject["param"] = params;
 	}
 
-	// Send one HTTPS API request with a prebuilt JSON array body and parse the standard Reolink envelope
-	RequestResult sendReolinkRequest(const String &url, const char *command, JsonDocument &requestDoc, JsonDocument &responseDoc, int &responseCode, bool requireAllCommandsSucceeded = true) {
-		// Reolink NVRs commonly use self-signed HTTPS certificates
-		WiFiClientSecure secureClient;
-		secureClient.setInsecure();
-		HTTPClient http;
-
-		// Open the HTTP connection to the Reolink API endpoint
-		if (!http.begin(secureClient, url)) {
-			printLogfln("Reolink: failed to open HTTP client for %s", command);
-			showReolinkStatus("NVR Link Error", "Check network!");
-			responseCode = -1;
-			return RequestResult::NetworkError;
+	// Read the reply body, up to the size limit (an oversized or broken reply closes the connection)
+	bool readReplyBody(String &responseBody) {
+		// Refuse a reply announced as too large without reading it
+		const int announcedSize = http.getSize();
+		if (announcedSize > static_cast<int>(config::REOLINK_MAX_REPLY_BYTES)) {
+			printLogfln("Reolink: reply too large (%d bytes)", announcedSize);
+			secureClient.stop();
+			return false;
 		}
 
-		// Set the HTTP timeout and content type for the request
+		// Read the body (chunked replies are decoded by the HTTP client)
+		if (announcedSize > 0) responseBody.reserve(announcedSize);
+		BoundedStringStream bodyStream(responseBody, config::REOLINK_MAX_REPLY_BYTES);
+		const int readResult = http.writeToStream(&bodyStream);
+		if (readResult < 0) {
+			printLogfln("Reolink: failed to read the reply (%s)", HTTPClient::errorToString(readResult).c_str());
+			return false;
+		}
+
+		// Body read
+		return true;
+	}
+
+	// Check whether a request failed before any answer, as when the NVR closed the kept connection meanwhile
+	bool isClosedConnectionError(int statusCode) {
+		return statusCode == HTTPC_ERROR_SEND_HEADER_FAILED || statusCode == HTTPC_ERROR_SEND_PAYLOAD_FAILED || statusCode == HTTPC_ERROR_CONNECTION_LOST;
+	}
+
+	// Send the POST request once, on the kept connection if there is one
+	int sendPostOnce(const String &url, const char *command, const String &requestBody) {
+		// Open the HTTP connection to the Reolink API endpoint (or reuse the open one)
+		if (!http.begin(secureClient, url)) {
+			printLogfln("Reolink: failed to open HTTP client for %s", command);
+			return HTTPC_ERROR_CONNECTION_REFUSED;
+		}
+
+		// Set the HTTP timeout and content type for the request, and send it
 		http.setTimeout(config::REOLINK_HTTP_TIMEOUT_MS);
 		http.addHeader("Content-Type", "application/json");
+		return http.POST(requestBody);
+	}
 
+	// Send the POST request, again on a new connection if the NVR closed the kept one (the commands are safe to send twice)
+	int postReolinkRequest(const String &url, const char *command, const String &requestBody) {
+		// Reolink NVRs commonly use self-signed HTTPS certificates
+		secureClient.setInsecure();
+
+		// Send the request, and stop unless the kept connection was closed before the NVR answered
+		const bool isReusingConnection = secureClient.connected();
+		const int statusCode = sendPostOnce(url, command, requestBody);
+		if (!isReusingConnection || !isClosedConnectionError(statusCode)) {
+			return statusCode;
+		}
+
+		// Send it again on a new connection
+		printLogfln("Reolink: the NVR closed the connection, reconnecting for %s", command);
+		http.end();
+		secureClient.stop();
+		return sendPostOnce(url, command, requestBody);
+	}
+
+	// Send one HTTPS API request with a prebuilt JSON array body and parse the standard Reolink envelope
+	RequestResult sendReolinkRequest(const String &url, const char *command, JsonDocument &requestDoc, JsonDocument &responseDoc, int &responseCode, bool requireAllCommandsSucceeded = true) {
 		// The API expects a JSON array even for a single command
 		String requestBody;
 		serializeJson(requestDoc, requestBody);
 
-		// Send the HTTP POST request and get the response code and body
-		const int statusCode = http.POST(requestBody);
-		const String responseBody = http.getString();
+		// Send the HTTP POST request and read the response code and body
+		const int statusCode = postReolinkRequest(url, command, requestBody);
+		String responseBody;
+		const bool isBodyRead = statusCode > 0 && readReplyBody(responseBody);
 		http.end();
 
 		// Check for HTTP errors
@@ -143,6 +234,13 @@ namespace {
 			return RequestResult::NetworkError;
 		}
 
+		// Check the body was read in full
+		if (!isBodyRead) {
+			showReolinkStatus("NVR Reply Err!", "Try again!");
+			responseCode = -1;
+			return RequestResult::NetworkError;
+		}
+
 		// Parse the JSON response body into a document
 		const DeserializationError jsonError = deserializeJson(responseDoc, responseBody);
 
@@ -154,45 +252,35 @@ namespace {
 			return RequestResult::NetworkError;
 		}
 
-		// Get the results array
-		JsonArray results = responseDoc.as<JsonArray>();
-
-		// Check if the results array is empty or null, which indicates an error
-		if (results.isNull() || results.size() == 0) {
-			printLogfln("Reolink: empty API result for %s", command);
-			showReolinkStatus("NVR Reply Err!", "Empty answer");
-			responseCode = -1;
-			return RequestResult::NetworkError;
-		}
-
-		// Iterate through the results and check for errors in each command response
-		for (JsonObject result : results) {
-			const int resultCode = result["code"] | -1;
-			if (resultCode == 0) continue;
-
-			// Log the failed command and its error detail
-			const int errorCode = result["error"]["rspCode"] | resultCode;
-			const char *failedCommand = result["cmd"] | command;
-			const char *detail = result["error"]["detail"] | "unknown error";
-			printLogfln("Reolink: %s failed (%d): %s", failedCommand, errorCode, detail);
+		// Check the results of the commands
+		const ReplyCheck replyCheck = checkReplyResults(responseDoc.as<JsonArrayConst>(), requireAllCommandsSucceeded);
+		switch (replyCheck.status) {
+			// No result at all
+			case ReplyStatus::Empty:
+				printLogfln("Reolink: empty API result for %s", command);
+				showReolinkStatus("NVR Reply Err!", "Empty answer");
+				responseCode = -1;
+				return RequestResult::NetworkError;
 
 			// An expired session fails the whole request, so the caller can log in again and retry
-			if (errorCode == SESSION_EXPIRED_CODE) {
-				responseCode = errorCode;
+			case ReplyStatus::SessionExpired:
+				printLogfln("Reolink: %s failed, the session expired", replyCheck.failedCommand ? replyCheck.failedCommand : command);
+				responseCode = replyCheck.errorCode;
 				return RequestResult::CommandError;
-			}
 
-			// Fail the whole request unless the caller reads the result of each command itself
-			if (requireAllCommandsSucceeded) {
+			// A refused command fails the whole request
+			case ReplyStatus::CommandRefused:
+				printLogfln("Reolink: %s failed (%d): %s", replyCheck.failedCommand ? replyCheck.failedCommand : command, replyCheck.errorCode, replyCheck.detail ? replyCheck.detail : "unknown error");
 				showReolinkStatus("NVR Command Err!", "Try again!");
-				responseCode = errorCode;
+				responseCode = replyCheck.errorCode;
 				return RequestResult::CommandError;
-			}
-		}
 
-		// If we reach this point, the NVR answered every command
-		responseCode = 0;
-		return RequestResult::Ok;
+			// The NVR answered every command
+			case ReplyStatus::Ok:
+			default:
+				responseCode = 0;
+				return RequestResult::Ok;
+		}
 	}
 
 	// Log in once and cache the returned token for later API calls
@@ -243,7 +331,7 @@ namespace {
 
 		// Extract the token name and lease time from the response, using default values if missing
 		const char *tokenName = responseDoc[0]["value"]["Token"]["name"] | "";
-		const uint32_t leaseTimeSeconds = responseDoc[0]["value"]["Token"]["leaseTime"] | 3600;
+		const uint32_t leaseTimeSeconds = responseDoc[0]["value"]["Token"]["leaseTime"] | DEFAULT_TOKEN_LEASE_SECONDS;
 
 		// If the token name is empty, treat it as a failed login and clear the session token
 		if (tokenName[0] == '\0') {
@@ -254,9 +342,9 @@ namespace {
 			return false;
 		}
 
-		// Cache the session token and calculate its expiry time, subtracting 60 seconds to refresh before actual expiration
+		// Cache the session token and when to refresh it (a minute before the NVR expires it)
 		sessionToken = tokenName;
-		tokenExpiryTimeMs = millis() + ((leaseTimeSeconds > 60 ? leaseTimeSeconds - 60 : leaseTimeSeconds) * 1000UL);
+		tokenExpiryTimeMs = computeTokenExpiryMs(millis(), leaseTimeSeconds);
 		return true;
 	}
 
@@ -373,11 +461,6 @@ namespace {
 		JsonDocument requestDoc;
 		JsonArray requestArray = requestDoc.to<JsonArray>();
 
-		// Mark every outcome as unknown until the NVR answers
-		for (uint8_t index = 0; index < commandCount; index += 1) {
-			outcomes[index] = CommandOutcome::Unknown;
-		}
-
 		// Append one request per channel setting to the batch
 		for (uint8_t index = 0; index < commandCount; index += 1) {
 			appendChannelSettingRequest(requestArray, commands[index], enabled);
@@ -396,26 +479,15 @@ namespace {
 			return false;
 		}
 
-		// Read the answer to each command (the NVR answers in request order)
-		uint8_t index = 0;
-		for (JsonObject result : responseDoc.as<JsonArray>()) {
-			if (index >= commandCount) break;
-
-			// Keep the outcome unknown if the answer is for another command (the setting may or may not have changed)
-			const char *expectedCommand = getChannelSettingCommand(commands[index].setting);
-			const char *answeredCommand = result["cmd"] | expectedCommand;
-			if (strcmp(answeredCommand, expectedCommand) != 0) {
-				printLogfln("Reolink: unexpected answer %s for %s on channel %u", answeredCommand, expectedCommand, commands[index].channel);
-				index += 1;
-				continue;
-			}
-
-			// Record whether the command succeeded
-			outcomes[index] = (result["code"] | -1) == 0 ? CommandOutcome::Succeeded : CommandOutcome::Failed;
+		// Read the answer to each command, and log the ones that didn't succeed
+		readCommandOutcomes(responseDoc.as<JsonArrayConst>(), commands, commandCount, outcomes);
+		for (uint8_t index = 0; index < commandCount; index += 1) {
+			const char *command = getChannelSettingCommand(commands[index].setting);
 			if (outcomes[index] == CommandOutcome::Failed) {
-				printLogfln("Reolink: %s refused on channel %u", expectedCommand, commands[index].channel);
+				printLogfln("Reolink: %s refused on channel %u: %s", command, commands[index].channel, responseDoc[index]["error"]["detail"] | "unknown error");
+			} else if (outcomes[index] == CommandOutcome::Unknown) {
+				printLogfln("Reolink: no answer for %s on channel %u", command, commands[index].channel);
 			}
-			index += 1;
 		}
 
 		// The NVR answered
@@ -435,6 +507,7 @@ ReolinkSetupResult setupReolink() {
 	// Clear any existing session token and expiry time to ensure a fresh login
 	sessionToken = "";
 	tokenExpiryTimeMs = 0;
+	ReolinkConnectionScope connectionScope;
 
 	// Without Wi-Fi the NVR can't be checked yet
 	if (!isWiFiConnected()) {
@@ -463,6 +536,7 @@ ReolinkMuteResult disableReolinkNotificationsAndRecording() {
 	uint8_t channelCount = 0;
 	ChannelCommand commands[MAX_CHANNEL_COMMAND_COUNT];
 	CommandOutcome outcomes[MAX_CHANNEL_COMMAND_COUNT];
+	ReolinkConnectionScope connectionScope;
 
 	// Refuse to run if the feature was not configured
 	if (!hasReolinkCredentials()) {
@@ -478,6 +552,9 @@ ReolinkMuteResult disableReolinkNotificationsAndRecording() {
 		delay(config::SHOW_DISPLAY_MESSAGE_MS);
 		return ReolinkMuteResult::Failed;
 	}
+
+	// Show the work right away (the login and the channel list can take a few seconds)
+	showReolinkStatus("Quiet Mode ON", "Connecting...");
 
 	// Get the list of currently active channels (the request shows its own error, so keep it on screen)
 	if (!getActiveChannels(channels, channelCount)) {
@@ -536,6 +613,7 @@ ReolinkRestoreResult restoreReolinkNotificationsAndRecording() {
 	uint8_t channelCount = 0;
 	ChannelCommand commands[MAX_CHANNEL_COMMAND_COUNT];
 	CommandOutcome outcomes[MAX_CHANNEL_COMMAND_COUNT];
+	ReolinkConnectionScope connectionScope;
 
 	// Nothing to restore
 	if (!hasMutedChannels(getMutedChannelMasks())) return ReolinkRestoreResult::Restored;
@@ -554,6 +632,9 @@ ReolinkRestoreResult restoreReolinkNotificationsAndRecording() {
 		delay(config::SHOW_DISPLAY_MESSAGE_MS);
 		return ReolinkRestoreResult::Failed;
 	}
+
+	// Show the work right away (the login and the channel list can take a few seconds)
+	showReolinkStatus("Quiet Mode OFF", "Connecting...");
 
 	// Get the list of currently active channels (the request shows its own error, so keep it on screen)
 	if (!getActiveChannels(channels, channelCount)) {

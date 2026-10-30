@@ -17,6 +17,21 @@ namespace {
 	bool shouldRetryRestoreNow = false;
 	uint32_t lastRestoreAttemptTimeMs = 0;
 
+	// When the button was last polled (a long gap means the firmware was busy and didn't see the presses meanwhile)
+	uint32_t lastButtonPollTimeMs = 0;
+
+	// How to cancel, shown instead of the countdown for a moment after a short press while the timer runs
+	bool isCancelHintShown = false;
+	uint32_t cancelHintShownAtMs = 0;
+
+	// Check whether the cancel hint should still be on screen
+	bool isCancelHintVisible() {
+		if (isCancelHintShown && millis() - cancelHintShownAtMs >= config::SHOW_DISPLAY_MESSAGE_MS) {
+			isCancelHintShown = false;
+		}
+		return isCancelHintShown;
+	}
+
 	// Print the current timer state to the serial console
 	void printMenuStatus() {
 		char timeBuffer[gizmo::DURATION_TEXT_SIZE] = {0};
@@ -24,6 +39,12 @@ namespace {
 
 		// Format the remaining time for display
 		printLogf("%s\n", getMenuDisplayText());
+
+		// Explain how to cancel for a moment after a short press (it doesn't change a running timer)
+		if (isTimerRunning() && isCancelHintVisible()) {
+			displayShowScreen("Alerts OFF", "Hold to cancel");
+			return;
+		}
 
 		// Show the current timer state on the LCD
 		if (isTimerRunning()) {
@@ -181,6 +202,16 @@ namespace {
 		switch (event) {
 			// Handle a short button press
 			case ButtonEvent::ShortPress:
+				// A short press doesn't change a running timer, so show how to cancel it
+				if (isTimerRunning()) {
+					isCancelHintShown = true;
+					cancelHintShownAtMs = millis();
+					printMenuStatus();
+					singleBuzz(config::SHORT_BUZZ_MS);
+					break;
+				}
+
+				// Otherwise change the selected duration
 				handleMenuEvent(increaseSelectedDuration());
 				break;
 
@@ -269,8 +300,14 @@ void loop() {
 	// Keep the Wi-Fi connection alive
 	manageWiFiConnection();
 
+	// Drop a press made while the firmware was busy since the last poll (the screen said to wait, and a late press would act on another screen)
+	if (millis() - lastButtonPollTimeMs >= config::BUTTON_BUSY_GAP_MS) {
+		ignoreButtonUntilReleased();
+	}
+
 	// Poll the button for events
 	const ButtonEvent buttonEvent = pollButtonEvent();
+	lastButtonPollTimeMs = millis();
 
 	// Handle any button event
 	if (buttonEvent != ButtonEvent::None) {

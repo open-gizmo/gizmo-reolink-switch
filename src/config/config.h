@@ -25,6 +25,7 @@ namespace config {
 	// Timing constants
 	extern const uint32_t BUTTON_DEBOUNCE_DELAY_MS;
 	extern const uint32_t BUTTON_LONG_PRESS_DELAY_MS;
+	extern const uint32_t BUTTON_BUSY_GAP_MS;
 	extern const uint32_t WIFI_CONNECT_RETRY_DELAY_MS;
 	extern const uint32_t REOLINK_HTTP_TIMEOUT_MS;
 	extern const uint32_t REOLINK_RESTORE_RETRY_MS;
@@ -44,6 +45,7 @@ namespace config {
 
 	// Reolink constants
 	extern const uint8_t REOLINK_MAX_CHANNELS;
+	extern const uint32_t REOLINK_MAX_REPLY_BYTES;
 
 	// Display constants
 	extern const uint32_t SHOW_DISPLAY_MESSAGE_MS;

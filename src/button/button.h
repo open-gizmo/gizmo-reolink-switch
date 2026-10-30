@@ -3,13 +3,10 @@
 
 #include <Arduino.h>
 
-enum class ButtonEvent : uint8_t {
-	None,
-	ShortPress,
-	LongPress,
-};
+#include "button_debouncer.h"
 
 void setupButton();
 ButtonEvent pollButtonEvent();
+void ignoreButtonUntilReleased();
 
 #endif

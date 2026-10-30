@@ -42,7 +42,7 @@ This project is designed for a simple real-world problem: you want to leave the 
 The firmware runs on an ESP32 and gives you a compact standalone interface:
 
 - Short press the button to choose a mute duration.
-- Long press to start the countdown.
+- Long press to start the countdown. A short press while it runs shows how to cancel it.
 - The ESP32 connects to WiFi and tells the Reolink NVR to disable notifications and recording on active channels.
 - When the timer finishes, or when you cancel it, the firmware turns notifications and recording back on for the channels it muted.
 
@@ -271,6 +271,7 @@ The main shared constants live in [src/config/config.h](src/config/config.h) and
 ## 🧰 Troubleshooting
 
 - LCD powers on but shows no text: verify SDA/SCL wiring and confirm the backpack address matches the configured `0x27`.
+- Button press ignored: while the LCD shows `Connecting...` or a result, the firmware is talking to the NVR and drops presses on purpose (a late press would act on the next screen). Press again once the idle or countdown screen is back.
 - Button does nothing: verify the wiring against the input mode expected by the firmware.
 - Quiet mode does not start: check WiFi connectivity and Reolink credentials first.
 - NVR state does not restore: the LCD shows `Alerts Still OFF` and the firmware keeps retrying. Hold the button to retry right away, or enable `PIO_DEV_MODE=1` and inspect the serial logs.
