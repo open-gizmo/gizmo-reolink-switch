@@ -9,3 +9,9 @@ IndentCaseLabels: true
 FixNamespaceComments: false
 ColumnLimit: 0
 SortIncludes: false
+AccessModifierOffset: -4
+InsertBraces: true
+Cpp11BracedListStyle: false
+AlignTrailingComments:
+  Kind: Never
+AlignAfterOpenBracket: DontAlign

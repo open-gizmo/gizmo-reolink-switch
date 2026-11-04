@@ -34,8 +34,8 @@ namespace {
 
 	// Print the current timer state to the serial console
 	void printMenuStatus() {
-		char timeBuffer[gizmo::DURATION_TEXT_SIZE] = {0};
-		char detailLine[sizeof("Mute for ") + gizmo::DURATION_TEXT_SIZE] = {0}; // Fits any duration (the LCD crops to its width, and a native test checks the real lines fit)
+		char timeBuffer[gizmo::DURATION_TEXT_SIZE] = { 0 };
+		char detailLine[sizeof("Mute for ") + gizmo::DURATION_TEXT_SIZE] = { 0 }; // Fits any duration (the LCD crops to its width, and a native test checks the real lines fit)
 
 		// Format the remaining time for display
 		printLogf("%s\n", getMenuDisplayText());
@@ -91,7 +91,9 @@ namespace {
 			case ReolinkRestoreResult::PartiallyRestored:
 				printLogln("Some muted cameras are offline. Retrying later.");
 				displayShowScreen("Cam Offline!", "Will retry");
-				if (!isBackgroundRetry) doubleBuzz(config::SHORT_BUZZ_MS);
+				if (!isBackgroundRetry) {
+					doubleBuzz(config::SHORT_BUZZ_MS);
+				}
 				break;
 
 			// The NVR could not be reached or rejected the request
@@ -99,7 +101,9 @@ namespace {
 			default:
 				printLogln("Failed to restore Reolink notifications and recording. Retrying later.");
 				displayShowScreen("Restore Failed", "Will retry");
-				if (!isBackgroundRetry) doubleBuzz(config::SHORT_BUZZ_MS);
+				if (!isBackgroundRetry) {
+					doubleBuzz(config::SHORT_BUZZ_MS);
+				}
 				break;
 		}
 
@@ -111,10 +115,14 @@ namespace {
 	// Retry a pending restore in the background while the timer is idle
 	void manageRestoreRetries() {
 		// Only retry while idle, with Wi-Fi, and with cameras still muted
-		if (isTimerRunning() || !isWiFiConnected() || !hasPendingReolinkRestore()) return;
+		if (isTimerRunning() || !isWiFiConnected() || !hasPendingReolinkRestore()) {
+			return;
+		}
 
 		// Wait for the retry interval unless a retry was requested right away
-		if (!shouldRetryRestoreNow && millis() - lastRestoreAttemptTimeMs < config::REOLINK_RESTORE_RETRY_MS) return;
+		if (!shouldRetryRestoreNow && millis() - lastRestoreAttemptTimeMs < config::REOLINK_RESTORE_RETRY_MS) {
+			return;
+		}
 
 		// Retry the restore
 		printLogln("Retrying pending Reolink restore...");

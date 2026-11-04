@@ -10,8 +10,8 @@ void initSerial();
 
 // Logging comes from gizmo-common
 using gizmo::printLog;
-using gizmo::printLogln;
 using gizmo::printLogf;
 using gizmo::printLogfln;
+using gizmo::printLogln;
 
 #endif

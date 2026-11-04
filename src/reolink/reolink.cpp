@@ -155,7 +155,9 @@ namespace {
 		}
 
 		// Read the body (chunked replies are decoded by the HTTP client)
-		if (announcedSize > 0) responseBody.reserve(announcedSize);
+		if (announcedSize > 0) {
+			responseBody.reserve(announcedSize);
+		}
 		BoundedStringStream bodyStream(responseBody, config::REOLINK_MAX_REPLY_BYTES);
 		const int readResult = http.writeToStream(&bodyStream);
 		if (readResult < 0) {
@@ -532,7 +534,7 @@ ReolinkSetupResult setupReolink() {
 
 // Disable notifications and recording for all active channels
 ReolinkMuteResult disableReolinkNotificationsAndRecording() {
-	uint8_t channels[config::REOLINK_MAX_CHANNELS] = {0};
+	uint8_t channels[config::REOLINK_MAX_CHANNELS] = { 0 };
 	uint8_t channelCount = 0;
 	ChannelCommand commands[MAX_CHANNEL_COMMAND_COUNT];
 	CommandOutcome outcomes[MAX_CHANNEL_COMMAND_COUNT];
@@ -609,14 +611,16 @@ ReolinkMuteResult disableReolinkNotificationsAndRecording() {
 
 // Restore notifications and recording for the muted settings of the online channels
 ReolinkRestoreResult restoreReolinkNotificationsAndRecording() {
-	uint8_t channels[config::REOLINK_MAX_CHANNELS] = {0};
+	uint8_t channels[config::REOLINK_MAX_CHANNELS] = { 0 };
 	uint8_t channelCount = 0;
 	ChannelCommand commands[MAX_CHANNEL_COMMAND_COUNT];
 	CommandOutcome outcomes[MAX_CHANNEL_COMMAND_COUNT];
 	ReolinkConnectionScope connectionScope;
 
 	// Nothing to restore
-	if (!hasMutedChannels(getMutedChannelMasks())) return ReolinkRestoreResult::Restored;
+	if (!hasMutedChannels(getMutedChannelMasks())) {
+		return ReolinkRestoreResult::Restored;
+	}
 
 	// Refuse to run if the feature was not configured
 	if (!hasReolinkCredentials()) {

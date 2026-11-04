@@ -71,7 +71,9 @@ void manageWiFiConnection() {
 	}
 
 	// Wait until the reconnect interval has passed
-	if (currentTimeMs - lastReconnectAttemptTimeMs < config::WIFI_RECONNECT_INTERVAL_MS) return;
+	if (currentTimeMs - lastReconnectAttemptTimeMs < config::WIFI_RECONNECT_INTERVAL_MS) {
+		return;
+	}
 
 	// Attempt to reconnect
 	lastReconnectAttemptTimeMs = currentTimeMs;

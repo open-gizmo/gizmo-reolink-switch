@@ -23,7 +23,9 @@ namespace {
 
 		// Clear the bit of each command with the matching outcome
 		for (uint8_t index = 0; index < commandCount; index += 1) {
-			if (outcomes[index] != outcomeToRemove) continue;
+			if (outcomes[index] != outcomeToRemove) {
+				continue;
+			}
 			getSettingMask(updatedMasks, commands[index].setting) &= ~getChannelBit(commands[index].channel);
 		}
 
@@ -48,7 +50,9 @@ uint8_t buildMuteCommands(const uint8_t *channels, uint8_t channelCount, Channel
 
 	// Add one command per setting for each trackable channel
 	for (uint8_t index = 0; index < channelCount; index += 1) {
-		if (channels[index] >= MAX_TRACKED_CHANNEL_COUNT) continue; // Skip channels that don't fit in the masks
+		if (channels[index] >= MAX_TRACKED_CHANNEL_COUNT) {
+			continue; // Skip channels that don't fit in the masks
+		}
 		commands[commandCount] = { channels[index], ChannelSetting::Push };
 		commands[commandCount + 1] = { channels[index], ChannelSetting::Recording };
 		commandCount += 2;
@@ -65,7 +69,9 @@ uint8_t buildRestoreCommands(const uint8_t *onlineChannels, uint8_t onlineChanne
 	// Add a command for each muted setting of each online channel
 	for (uint8_t index = 0; index < onlineChannelCount; index += 1) {
 		const uint8_t channel = onlineChannels[index];
-		if (channel >= MAX_TRACKED_CHANNEL_COUNT) continue; // Skip channels that don't fit in the masks
+		if (channel >= MAX_TRACKED_CHANNEL_COUNT) {
+			continue; // Skip channels that don't fit in the masks
+		}
 
 		// Restore push notifications if they were muted
 		if (isSettingMuted(masks, channel, ChannelSetting::Push)) {
@@ -113,7 +119,9 @@ uint8_t countCommandOutcomes(const CommandOutcome *outcomes, uint8_t commandCoun
 
 	// Count each matching outcome
 	for (uint8_t index = 0; index < commandCount; index += 1) {
-		if (outcomes[index] == outcome) matchingCount += 1;
+		if (outcomes[index] == outcome) {
+			matchingCount += 1;
+		}
 	}
 
 	// Return the count

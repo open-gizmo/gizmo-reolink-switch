@@ -23,7 +23,7 @@ void tearDown() {}
 
 // The LCD lines built around the duration must fit the display, even at the maximum
 void test_lcd_lines_fit_at_the_maximum_duration() {
-	char buffer[gizmo::DURATION_TEXT_SIZE] = {0};
+	char buffer[gizmo::DURATION_TEXT_SIZE] = { 0 };
 
 	// Format the configured maximum
 	formatIntoBuffer(config::TIMER_MAX_DURATION_SECONDS, buffer);

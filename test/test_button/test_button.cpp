@@ -15,8 +15,12 @@ namespace {
 		for (uint32_t elapsedMs = 0; elapsedMs < durationMs; elapsedMs += 1) {
 			currentTimeMs += 1;
 			const ButtonEvent event = updateButtonDebouncer(debouncer, isPressed, currentTimeMs);
-			if (event == ButtonEvent::None) continue;
-			if (eventCount < maxEvents) events[eventCount] = event;
+			if (event == ButtonEvent::None) {
+				continue;
+			}
+			if (eventCount < maxEvents) {
+				events[eventCount] = event;
+			}
 			eventCount += 1;
 		}
 		return eventCount;

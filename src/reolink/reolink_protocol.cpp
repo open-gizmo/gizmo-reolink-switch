@@ -30,7 +30,9 @@ ReplyCheck checkReplyResults(JsonArrayConst results, bool requireAllCommandsSucc
 	// Look for the first command that matters
 	for (JsonObjectConst result : results) {
 		const int resultCode = result["code"] | -1;
-		if (resultCode == 0) continue;
+		if (resultCode == 0) {
+			continue;
+		}
 
 		// Read what the NVR said about the failed command
 		const int errorCode = result["error"]["rspCode"] | resultCode;
@@ -62,7 +64,9 @@ void readCommandOutcomes(JsonArrayConst results, const ChannelCommand *commands,
 	// Read the answers, one per command
 	uint8_t index = 0;
 	for (JsonObjectConst result : results) {
-		if (index >= commandCount) break;
+		if (index >= commandCount) {
+			break;
+		}
 
 		// Keep the outcome unknown if the answer is for another command (the setting may or may not have changed)
 		const char *expectedCommand = getChannelSettingCommand(commands[index].setting);

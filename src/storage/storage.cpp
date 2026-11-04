@@ -17,7 +17,9 @@ namespace {
 
 	// Write one mask to NVS only when its value changes
 	bool saveMaskIfChanged(const char *key, uint32_t storedMask, uint32_t newMask) {
-		if (storedMask == newMask) return true;
+		if (storedMask == newMask) {
+			return true;
+		}
 		return preferences.putULong(key, newMask) == sizeof(uint32_t);
 	}
 }
@@ -48,7 +50,9 @@ bool saveMutedChannelMasks(const MutedChannelMasks &masks) {
 
 	// Update the RAM copy first, so the firmware keeps the right state even if the flash write fails
 	mutedChannelMasks = masks;
-	if (!storageReady) return false;
+	if (!storageReady) {
+		return false;
+	}
 
 	// Write the masks that changed
 	const bool isPushSaved = saveMaskIfChanged(MUTED_PUSH_KEY, storedMasks.pushChannelMask, masks.pushChannelMask);

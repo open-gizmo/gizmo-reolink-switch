@@ -14,7 +14,7 @@ namespace {
 	constexpr uint8_t MAX_DISPLAY_LINE_COUNT = 4;
 	constexpr uint8_t MAX_DISPLAY_LINE_LENGTH = 20;
 
-	char displayLines[MAX_DISPLAY_LINE_COUNT][MAX_DISPLAY_LINE_LENGTH + 1] = {{0}};
+	char displayLines[MAX_DISPLAY_LINE_COUNT][MAX_DISPLAY_LINE_LENGTH + 1] = { { 0 } };
 	uint8_t currentLineIndex = 0;
 	uint8_t currentColumnIndex = 0;
 	uint8_t activeDisplayRows = 0;
