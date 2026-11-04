@@ -7,6 +7,7 @@
 #include "config/config.h"
 #include "display/display.h"
 #include "channels/channels.h"
+#include "nvr/nvr_settings.h"
 #include "reolink_protocol.h"
 #include "serial/serial.h"
 #include "storage/storage.h"
@@ -27,6 +28,13 @@ namespace {
 	// Login pause after the NVR refuses a login (repeated wrong-password logins can lock the account)
 	bool isLoginPaused = false;
 	uint32_t loginPausedAtMs = 0;
+
+	// Login of the NVR, copied from the saved settings at the start of each operation (so one operation never mixes two logins)
+	NvrSettings nvr = {};
+
+	// Last known state of the NVR connection, and the online cameras at the last check (shown in the web app)
+	NvrStatus nvrStatus = NvrStatus::Unknown;
+	uint8_t cameraCount = 0;
 
 	// One HTTPS connection kept open for all the requests of a mute or restore, so they share a single TLS handshake
 	WiFiClientSecure secureClient;
@@ -81,9 +89,14 @@ namespace {
 		displayShowScreen(line1, line2);
 	}
 
-	// Check whether all required Reolink credentials are configured
+	// Copy the saved login for this operation, and check that it's complete
 	bool hasReolinkCredentials() {
-		return config::REOLINK_HOST[0] != '\0' && config::REOLINK_USERNAME[0] != '\0' && config::REOLINK_PASSWORD[0] != '\0';
+		nvr = getNvrSettings();
+		if (!isNvrConfigured(nvr)) {
+			nvrStatus = NvrStatus::NotConfigured;
+			return false;
+		}
+		return true;
 	}
 
 	// Encode credentials so they are safe to include in the query string
@@ -115,7 +128,7 @@ namespace {
 	// Build the HTTPS API endpoint with one authentication query parameter
 	String buildApiUrl(const char *command, const char *authKey, const char *authValue) {
 		String url = "https://";
-		url += config::REOLINK_HOST;
+		url += nvr.host;
 		url += "/api.cgi?cmd=";
 		url += command;
 		url += "&";
@@ -292,6 +305,7 @@ namespace {
 			printLogln("Reolink: login paused after a refused login.");
 			showReolinkStatus("Login Paused", "Check password");
 			delay(config::SHOW_DISPLAY_MESSAGE_MS);
+			nvrStatus = NvrStatus::LoginPaused;
 			return false;
 		}
 		isLoginPaused = false;
@@ -304,8 +318,8 @@ namespace {
 		requestObject["action"] = 0;
 		JsonObject paramsDoc = requestObject["param"].to<JsonObject>();
 		JsonObject userObject = paramsDoc["User"].to<JsonObject>();
-		userObject["userName"] = config::REOLINK_USERNAME;
-		userObject["password"] = config::REOLINK_PASSWORD;
+		userObject["userName"] = nvr.username;
+		userObject["password"] = nvr.password;
 
 		// Prepare a JSON document to hold the response and a variable for the response code
 		JsonDocument responseDoc;
@@ -317,6 +331,7 @@ namespace {
 		if (loginResult != RequestResult::Ok) {
 			sessionToken = "";
 			tokenExpiryTimeMs = 0;
+			nvrStatus = NvrStatus::Unreachable;
 
 			// Pause logins if the NVR refused this one (wrong credentials, too many sessions...)
 			if (loginResult == RequestResult::CommandError) {
@@ -325,6 +340,7 @@ namespace {
 				delay(config::SHOW_DISPLAY_MESSAGE_MS);
 				isLoginPaused = true;
 				loginPausedAtMs = millis();
+				nvrStatus = NvrStatus::LoginRefused;
 			}
 
 			// Login failed
@@ -347,6 +363,7 @@ namespace {
 		// Cache the session token and when to refresh it (a minute before the NVR expires it)
 		sessionToken = tokenName;
 		tokenExpiryTimeMs = computeTokenExpiryMs(millis(), leaseTimeSeconds);
+		nvrStatus = NvrStatus::Connected;
 		return true;
 	}
 
@@ -375,6 +392,9 @@ namespace {
 
 		// Send the API request and return unless the session expired
 		const RequestResult result = sendReolinkRequest(url, command, requestDoc, responseDoc, responseCode, requireAllCommandsSucceeded);
+		if (result == RequestResult::NetworkError) {
+			nvrStatus = NvrStatus::Unreachable;
+		}
 		if (result != RequestResult::CommandError || responseCode != SESSION_EXPIRED_CODE) {
 			return result;
 		}
@@ -440,6 +460,7 @@ namespace {
 		}
 
 		// The API call succeeded (even if no channel is online)
+		cameraCount = channelCount;
 		return true;
 	}
 
@@ -497,39 +518,68 @@ namespace {
 	}
 }
 
-// Setup the Reolink integration, check the credentials and try a first login
-ReolinkSetupResult setupReolink() {
-	// Check if the required Reolink credentials are configured
-	if (!hasReolinkCredentials()) {
-		printLogln("Reolink credentials are not configured.");
-		showReolinkStatus("NVR Needed", "Add credentials!");
-		return ReolinkSetupResult::MissingCredentials;
-	}
+// Load the NVR login (the connection is checked once the Wi-Fi is up, with testReolinkConnection)
+void setupReolink() {
+	resetReolinkSession();
+}
 
-	// Clear any existing session token and expiry time to ensure a fresh login
+// Drop the session and the login pause, after the login changed in the web app
+void resetReolinkSession() {
 	sessionToken = "";
 	tokenExpiryTimeMs = 0;
+	isLoginPaused = false;
+	cameraCount = 0;
+	nvrStatus = hasReolinkCredentials() ? NvrStatus::Unknown : NvrStatus::NotConfigured;
+}
+
+// Log in and count the online cameras, showing the outcome on the LCD
+NvrStatus testReolinkConnection() {
+	uint8_t channels[config::REOLINK_MAX_CHANNELS] = { 0 };
+	uint8_t channelCount = 0;
 	ReolinkConnectionScope connectionScope;
 
-	// Without Wi-Fi the NVR can't be checked yet
+	// Nothing to test without a login
+	if (!hasReolinkCredentials()) {
+		showReolinkStatus("NVR Not Set", "Use the web app");
+		return nvrStatus;
+	}
+
+	// Without Wi-Fi the NVR can't be reached
 	if (!isWiFiConnected()) {
-		printLogln("Reolink configured, NVR not checked (no Wi-Fi).");
-		showReolinkStatus("NVR Configured", "Wi-Fi pending");
-		delay(config::SHOW_DISPLAY_MESSAGE_MS);
-		return ReolinkSetupResult::Ready;
+		nvrStatus = NvrStatus::Unreachable;
+		return nvrStatus;
 	}
 
-	// Log in once to check the NVR and the credentials (the login shows its own errors)
-	if (!ensureReolinkToken()) {
-		printLogln("Reolink configured, but the first login failed.");
+	// Log in again, so a changed password is really checked (the login shows its own errors)
+	showReolinkStatus("Checking NVR", "Connecting...");
+	sessionToken = "";
+	tokenExpiryTimeMs = 0;
+	if (!getActiveChannels(channels, channelCount)) {
+		printLogln("Reolink: connection test failed.");
+		if (nvrStatus == NvrStatus::Unreachable) {
+			showReolinkStatus("NVR Not Found", "Check address");
+		}
 		delay(config::SHOW_DISPLAY_MESSAGE_MS);
-		return ReolinkSetupResult::Ready;
+		return nvrStatus;
 	}
 
-	// All OK, the NVR answered and accepted the credentials
-	printLogln("Reolink linked.");
-	showReolinkStatus("NVR Linked", "Ready to mute!");
-	return ReolinkSetupResult::Ready;
+	// Show how many cameras are online
+	char cameraLine[24];
+	snprintf(cameraLine, sizeof(cameraLine), "%u cams online", channelCount);
+	printLogfln("Reolink linked, %u cameras online.", channelCount);
+	showReolinkStatus("NVR Linked", cameraLine);
+	delay(config::SHOW_DISPLAY_MESSAGE_MS);
+	return nvrStatus;
+}
+
+// Get the last known state of the NVR connection
+NvrStatus getReolinkStatus() {
+	return nvrStatus;
+}
+
+// Get the online cameras at the last check
+uint8_t getReolinkCameraCount() {
+	return cameraCount;
 }
 
 // Disable notifications and recording for all active channels
@@ -543,7 +593,7 @@ ReolinkMuteResult disableReolinkNotificationsAndRecording() {
 	// Refuse to run if the feature was not configured
 	if (!hasReolinkCredentials()) {
 		printLogln("Reolink disable skipped because credentials are missing.");
-		showReolinkStatus("NVR Needed", "Add credentials!");
+		showReolinkStatus("NVR Not Set", "Use the web app");
 		return ReolinkMuteResult::Failed;
 	}
 
@@ -625,7 +675,7 @@ ReolinkRestoreResult restoreReolinkNotificationsAndRecording() {
 	// Refuse to run if the feature was not configured
 	if (!hasReolinkCredentials()) {
 		printLogln("Reolink restore skipped because credentials are missing.");
-		showReolinkStatus("NVR Needed", "Add credentials!");
+		showReolinkStatus("NVR Not Set", "Use the web app");
 		return ReolinkRestoreResult::Failed;
 	}
 

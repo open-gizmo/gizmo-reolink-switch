@@ -14,6 +14,7 @@ enum class MenuEvent : uint8_t {
 
 void setupMenu();
 MenuEvent increaseSelectedDuration();
+MenuEvent setSelectedDuration(uint32_t durationSeconds);
 MenuEvent activateOrCancelTimer();
 void stopTimer();
 void restartTimerCountdown();

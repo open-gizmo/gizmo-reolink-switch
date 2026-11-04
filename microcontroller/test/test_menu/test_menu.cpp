@@ -235,6 +235,22 @@ void test_stop_timer_resets_without_events() {
 	TEST_ASSERT_EQUAL(MenuEvent::None, updateMenu());
 }
 
+// The web app can pick any duration, up to the maximum
+void test_web_duration_is_selected_and_capped() {
+	TEST_ASSERT_EQUAL(MenuEvent::SelectionChanged, setSelectedDuration(7 * 60));
+	TEST_ASSERT_EQUAL_UINT32(7 * 60, getSelectedDurationSeconds());
+	setSelectedDuration(5 * 60 * 60);
+	TEST_ASSERT_EQUAL_UINT32(config::TIMER_MAX_DURATION_SECONDS, getSelectedDurationSeconds());
+}
+
+// The web app can't change the duration of a running timer
+void test_web_duration_is_ignored_while_running() {
+	setSelectedDuration(10 * 60);
+	activateOrCancelTimer();
+	TEST_ASSERT_EQUAL(MenuEvent::None, setSelectedDuration(2 * 60));
+	TEST_ASSERT_EQUAL_UINT32(10 * 60, getRemainingSeconds());
+}
+
 // Run all the menu tests
 int main() {
 	UNITY_BEGIN();
@@ -259,6 +275,8 @@ int main() {
 	RUN_TEST(test_restart_countdown_gives_back_the_full_duration);
 	RUN_TEST(test_restart_countdown_is_ignored_when_idle);
 	RUN_TEST(test_stop_timer_resets_without_events);
+	RUN_TEST(test_web_duration_is_selected_and_capped);
+	RUN_TEST(test_web_duration_is_ignored_while_running);
 
 	return UNITY_END();
 }

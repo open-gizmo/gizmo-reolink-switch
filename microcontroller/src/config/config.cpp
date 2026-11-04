@@ -1,32 +1,26 @@
 #include "config.h"
 
-#ifndef PIO_WIFI_SSID
-#define PIO_WIFI_SSID ""
-#endif
-
-#ifndef PIO_WIFI_PASSWORD
-#define PIO_WIFI_PASSWORD ""
-#endif
-
-#ifndef PIO_REOLINK_HOST
-#define PIO_REOLINK_HOST ""
-#endif
-
-#ifndef PIO_REOLINK_USERNAME
-#define PIO_REOLINK_USERNAME ""
-#endif
-
-#ifndef PIO_REOLINK_PASSWORD
-#define PIO_REOLINK_PASSWORD ""
-#endif
-
 #ifndef PIO_DEV_MODE
 #define PIO_DEV_MODE 0
+#endif
+
+#ifndef PIO_FIRMWARE_VERSION
+#define PIO_FIRMWARE_VERSION "dev"
 #endif
 
 namespace config {
 	// Env configuration flags
 	const bool DEVMODE = PIO_DEV_MODE != 0;
+
+	// Project details shown in the web app (the release build sets the version)
+	const char PROJECT_NAME[] = "Gizmo Reolink Switch";
+	const char FIRMWARE_VERSION[] = PIO_FIRMWARE_VERSION;
+
+	// Network names and the Wi-Fi setup
+	const char HOSTNAME[] = "reolink-switch"; // http://reolink-switch.local
+	const char ACCESS_POINT_NAME[] = "Gizmo-Reolink"; // Open hotspot for the Wi-Fi setup, when no saved network works (it fits the LCD)
+	const char SETUP_PAGE_PATH[] = "/ap-setup"; // Page of the web app the hotspot clients are sent to
+	const char ASSET_PATH_PREFIX[] = "/_nuxt/"; // Files of the web app, never redirected by the hotspot
 
 	// Pin assignments
 	const uint8_t BUZZER_PIN = 12;
@@ -34,25 +28,13 @@ namespace config {
 	const uint8_t DISPLAY_SDA_PIN = 26;
 	const uint8_t DISPLAY_SCL_PIN = 25;
 
-	// WiFi credentials
-	const char WIFI_SSID[] = PIO_WIFI_SSID;
-	const char WIFI_PASSWORD[] = PIO_WIFI_PASSWORD;
-
-	// Reolink credentials
-	const char REOLINK_HOST[] = PIO_REOLINK_HOST;
-	const char REOLINK_USERNAME[] = PIO_REOLINK_USERNAME;
-	const char REOLINK_PASSWORD[] = PIO_REOLINK_PASSWORD;
-
 	// Timing constants
 	const uint32_t BUTTON_DEBOUNCE_DELAY_MS = 40;
 	const uint32_t BUTTON_LONG_PRESS_DELAY_MS = 700;
 	const uint32_t BUTTON_BUSY_GAP_MS = 250; // Longer than this between two button polls means slow work (a request, a long beep), so a press made meanwhile is dropped
-	const uint32_t WIFI_CONNECT_RETRY_DELAY_MS = 500;
 	const uint32_t REOLINK_HTTP_TIMEOUT_MS = 10000;
 	const uint32_t REOLINK_RESTORE_RETRY_MS = 60000; // Retry a failed or partial restore every minute
 	const uint32_t REOLINK_LOGIN_PAUSE_MS = 10UL * 60UL * 1000UL; // Wait after a refused login (NVRs lock the account after a few failures)
-	const uint32_t WIFI_CONNECT_TIMEOUT_MS = 20000; // Stop waiting at boot and keep retrying in the background
-	const uint32_t WIFI_RECONNECT_INTERVAL_MS = 30000; // Time without Wi-Fi before forcing a reconnect
 
 	// Timer duration constants
 	const uint32_t TIMER_SHORT_DURATION_STEP_SECONDS = 1UL * 60UL;

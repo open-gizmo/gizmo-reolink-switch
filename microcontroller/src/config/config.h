@@ -7,31 +7,34 @@ namespace config {
 	// Env configuration flags
 	extern const bool DEVMODE;
 
+	// Project details shown in the web app
+	extern const char PROJECT_NAME[];
+	extern const char FIRMWARE_VERSION[];
+
+	// Network names and the Wi-Fi setup
+	extern const char HOSTNAME[];
+	extern const char ACCESS_POINT_NAME[];
+	extern const char SETUP_PAGE_PATH[];
+	extern const char ASSET_PATH_PREFIX[];
+
 	// Pin assignments
 	extern const uint8_t BUZZER_PIN;
 	extern const uint8_t BUTTON_PIN;
 	extern const uint8_t DISPLAY_SDA_PIN;
 	extern const uint8_t DISPLAY_SCL_PIN;
 
-	// WiFi credentials
-	extern const char WIFI_SSID[];
-	extern const char WIFI_PASSWORD[];
-
-	// Reolink credentials
-	extern const char REOLINK_HOST[];
-	extern const char REOLINK_USERNAME[];
-	extern const char REOLINK_PASSWORD[];
+	// NVR login sizes (set from the web app and saved in NVS), terminator included
+	constexpr size_t NVR_HOST_SIZE = 65;
+	constexpr size_t NVR_USERNAME_SIZE = 33;
+	constexpr size_t NVR_PASSWORD_SIZE = 65;
 
 	// Timing constants
 	extern const uint32_t BUTTON_DEBOUNCE_DELAY_MS;
 	extern const uint32_t BUTTON_LONG_PRESS_DELAY_MS;
 	extern const uint32_t BUTTON_BUSY_GAP_MS;
-	extern const uint32_t WIFI_CONNECT_RETRY_DELAY_MS;
 	extern const uint32_t REOLINK_HTTP_TIMEOUT_MS;
 	extern const uint32_t REOLINK_RESTORE_RETRY_MS;
 	extern const uint32_t REOLINK_LOGIN_PAUSE_MS;
-	extern const uint32_t WIFI_CONNECT_TIMEOUT_MS;
-	extern const uint32_t WIFI_RECONNECT_INTERVAL_MS;
 
 	// Timer duration constants
 	extern const uint32_t TIMER_SHORT_DURATION_STEP_SECONDS;

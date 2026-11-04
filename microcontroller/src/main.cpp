@@ -1,17 +1,28 @@
+#include <WiFi.h>
+#include <gizmo/device.h>
 #include <gizmo/format.h>
 #include "config/config.h"
 #include "button/button.h"
 #include "buzzer/buzzer.h"
 #include "display/display.h"
 #include "menu/menu.h"
+#include "nvr/nvr_settings.h"
 #include "reolink/reolink.h"
+#include "remote/remote_control.h"
 #include "serial/serial.h"
+#include "server/server.h"
 #include "storage/storage.h"
 #include "wifi/wifi.h"
 
 namespace {
-	// If the program is in an idle state where it cannot operate
-	bool programIsIdle = false;
+	// NVR login revision the NVR client was reset for, and whether the login still needs a check once the Wi-Fi is up
+	uint32_t appliedNvrRevision = 0;
+	bool shouldTestNvr = true;
+
+	// What the idle screen was last drawn for (it shows the setup steps, so it's redrawn when they change)
+	bool wasHotspotActive = false;
+	bool wasNvrConfigured = false;
+	bool wasWiFiConnected = false;
 
 	// Restore retry state (used when a restore fails or some muted cameras are offline)
 	bool shouldRetryRestoreNow = false;
@@ -30,6 +41,11 @@ namespace {
 			isCancelHintShown = false;
 		}
 		return isCancelHintShown;
+	}
+
+	// Publish what the switch is doing for the web app (busy before slow work, so the web app waits instead of queuing more)
+	void publishStatus(bool isBusy) {
+		publishSwitchStatus({ isTimerRunning(), getRemainingSeconds(), getSelectedDurationSeconds(), hasPendingReolinkRestore(), isBusy, getReolinkStatus(), getReolinkCameraCount() });
 	}
 
 	// Print the current timer state to the serial console
@@ -60,6 +76,16 @@ namespace {
 			return;
 		}
 
+		// Show the setup steps when idle: join the hotspot to set the Wi-Fi, then set up the NVR from the web app
+		if (getSelectedDurationSeconds() == 0 && isSetupHotspotActive()) {
+			displayShowScreen("Join Wi-Fi Setup", config::ACCESS_POINT_NAME);
+			return;
+		}
+		if (getSelectedDurationSeconds() == 0 && !isNvrConfigured(getNvrSettings())) {
+			displayShowScreen("Set Up NVR: Open", isWiFiConnected() ? WiFi.localIP().toString().c_str() : "the web app");
+			return;
+		}
+
 		// Show the welcome screen when idle
 		if (getSelectedDurationSeconds() == 0) {
 			displayShowScreen("Reolink Switch", "Tap to start");
@@ -74,6 +100,8 @@ namespace {
 
 	// Restore the muted cameras and show the real outcome on the LCD (background retries don't beep on failure)
 	void restoreAlerts(const char *successTitle, bool isBackgroundRetry = false) {
+		publishStatus(true);
+
 		// Remember the attempt for the retry timer
 		lastRestoreAttemptTimeMs = millis();
 		shouldRetryRestoreNow = false;
@@ -141,6 +169,7 @@ namespace {
 			// Handle the start of a countdown timer
 			case MenuEvent::TimerStarted: {
 				// Additional feedback
+				publishStatus(true);
 				singleBuzz(config::SHORT_BUZZ_MS);
 
 				// Attempt to disable Reolink notifications and recording when the timer starts
@@ -243,6 +272,85 @@ namespace {
 	}
 }
 
+namespace {
+	// Run a command from the web app, through the same steps as the button
+	void handleRemoteCommand(const RemoteCommand &command) {
+		switch (command.type) {
+			// Select the duration and start the timer
+			case RemoteCommandType::StartQuietMode:
+				if (!isTimerRunning()) {
+					handleMenuEvent(setSelectedDuration(command.durationSeconds));
+					handleMenuEvent(activateOrCancelTimer());
+				}
+				break;
+
+			// Cancel the running timer
+			case RemoteCommandType::CancelQuietMode:
+				if (isTimerRunning()) {
+					handleMenuEvent(activateOrCancelTimer());
+				}
+				break;
+
+			// Retry restoring the alerts that are still off
+			case RemoteCommandType::RetryRestore:
+				if (!isTimerRunning() && hasPendingReolinkRestore()) {
+					restoreAlerts("Welcome Back");
+				}
+				break;
+
+			// Check the NVR login
+			case RemoteCommandType::TestNvr:
+				publishStatus(true);
+				shouldTestNvr = false;
+				testReolinkConnection();
+				printMenuStatus();
+				break;
+
+			// No command
+			case RemoteCommandType::None:
+			default:
+				break;
+		}
+	}
+
+	// Apply a login changed in the web app, and check the login once the Wi-Fi is up
+	void manageNvrLogin() {
+		// Drop the old session when the login changed
+		const uint32_t revision = getNvrSettingsRevision();
+		if (revision != appliedNvrRevision) {
+			appliedNvrRevision = revision;
+			resetReolinkSession();
+			shouldTestNvr = true;
+		}
+
+		// Check the login once the Wi-Fi is up (at boot, and after a change)
+		if (shouldTestNvr && isWiFiConnected() && !isTimerRunning() && isNvrConfigured(getNvrSettings())) {
+			shouldTestNvr = false;
+			publishStatus(true);
+			testReolinkConnection();
+			printMenuStatus();
+		}
+	}
+
+	// Redraw the idle screen when the setup steps change (hotspot opened, Wi-Fi up, NVR set)
+	void manageIdleScreen() {
+		const bool isHotspotActive = isSetupHotspotActive();
+		const bool isConfigured = isNvrConfigured(getNvrSettings());
+		const bool isConnected = isWiFiConnected();
+		if (isHotspotActive == wasHotspotActive && isConfigured == wasNvrConfigured && isConnected == wasWiFiConnected) {
+			return;
+		}
+
+		// Remember the new steps, and redraw only the idle screen (the timer screens redraw themselves)
+		wasHotspotActive = isHotspotActive;
+		wasNvrConfigured = isConfigured;
+		wasWiFiConnected = isConnected;
+		if (!isTimerRunning() && getSelectedDurationSeconds() == 0) {
+			printMenuStatus();
+		}
+	}
+}
+
 // Setup
 void setup() {
 	// Init serial
@@ -267,21 +375,15 @@ void setup() {
 	setupStorage();
 	printLogln("Storage initialized!");
 
-	// Connect WiFi
-	if (setupWiFi() == WiFiSetupResult::MissingCredentials) {
-		printLogln("Program halted. Configure WiFi credentials and reboot.");
-		displayShowScreen("Wi-Fi Needed", "Add credentials!");
-		programIsIdle = true;
-		return;
-	}
+	// Load the NVR login (set from the web app)
+	loadNvrSettings();
+	setupReolink();
+	appliedNvrRevision = getNvrSettingsRevision();
 
-	// Configure Reolink API
-	if (setupReolink() == ReolinkSetupResult::MissingCredentials) {
-		printLogln("Program halted. Configure Reolink credentials and reboot.");
-		displayShowScreen("NVR Needed", "Add credentials!");
-		programIsIdle = true;
-		return;
-	}
+	// Join the saved network or open the setup hotspot, and serve the web app
+	setupWiFi();
+	setupServer();
+	printLogln("Web app ready!");
 
 	// Init menu
 	setupMenu();
@@ -299,14 +401,19 @@ void setup() {
 
 // Loop
 void loop() {
-	// If the program is idle, do nothing
-	if (programIsIdle) {
-		delay(1000);
-		return;
-	}
-
-	// Keep the Wi-Fi connection alive
+	// Keep the Wi-Fi connection alive, and restart when the web app asks
 	manageWiFiConnection();
+	gizmo::manageDevice();
+
+	// Apply a changed NVR login, and redraw the setup steps when they change
+	manageNvrLogin();
+	manageIdleScreen();
+
+	// Run a command from the web app
+	const RemoteCommand remoteCommand = takeRemoteCommand();
+	if (remoteCommand.type != RemoteCommandType::None) {
+		handleRemoteCommand(remoteCommand);
+	}
 
 	// Drop a press made while the firmware was busy since the last poll (the screen said to wait, and a late press would act on another screen)
 	if (millis() - lastButtonPollTimeMs >= config::BUTTON_BUSY_GAP_MS) {
@@ -327,4 +434,7 @@ void loop() {
 
 	// Retry restoring cameras that are still muted
 	manageRestoreRetries();
+
+	// Publish what the switch is doing for the web app
+	publishStatus(false);
 }
