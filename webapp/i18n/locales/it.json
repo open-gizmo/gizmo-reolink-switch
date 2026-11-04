@@ -1,0 +1,152 @@
+{
+    "common": {
+        "syncingDevice": "Lettura del dispositivo...",
+        "loadErrorTitle": "Impossibile leggere il dispositivo",
+        "loadErrorDescription": "Il dispositivo non risponde. Controlla che sia acceso e sulla stessa rete, poi riprova.",
+        "loadRetryAction": "Riprova"
+    },
+    "nav": {
+        "home": {
+            "label": "Home",
+            "description": "Silenzia le telecamere per un po'"
+        },
+        "nvr": {
+            "label": "NVR",
+            "description": "Indirizzo e accesso dell'NVR Reolink"
+        },
+        "settings": {
+            "label": "Impostazioni",
+            "description": "Lingua e informazioni sul dispositivo"
+        }
+    },
+    "api": {
+        "backendErrors": {
+            "invalid_quiet_mode_field": "Il dispositivo non ha accettato la durata. Scegli un tempo tra 1 minuto e il massimo, poi riprova.",
+            "device_busy": "Il dispositivo è occupato con altro. Aspetta qualche secondo e riprova.",
+            "timer_running": "La modalità silenziosa è già attiva. Annullala prima se vuoi riavviarla.",
+            "timer_not_running": "La modalità silenziosa non è attiva, quindi non c'è nulla da annullare.",
+            "nothing_to_restore": "Gli avvisi sono già attivi, quindi non c'è nulla da riattivare.",
+            "nvr_not_configured": "L'NVR non è ancora configurato. Inserisci prima indirizzo, nome utente e password nella pagina NVR.",
+            "invalid_nvr_field": "Il dispositivo non ha accettato l'indirizzo, il nome utente o la password dell'NVR. Controllali e riprova. L'indirizzo e la password possono avere fino a 64 caratteri, il nome utente fino a 32.",
+            "nvr_change_while_muted": "L'accesso all'NVR non si può cambiare mentre la modalità silenziosa è attiva o gli avvisi sono ancora spenti. Riattiva prima gli avvisi, poi riprova.",
+            "nvr_save_failed": "Il dispositivo non è riuscito a salvare l'accesso all'NVR. Riprova."
+        }
+    },
+    "pages": {
+        "home": {
+            "title": "Modalità silenziosa",
+            "state": {
+                "idle": {
+                    "title": "Avvisi attivi",
+                    "description": "Le telecamere registrano e ti avvisano come sempre."
+                },
+                "running": {
+                    "title": "Modalità silenziosa",
+                    "description": "prima che gli avvisi tornino da soli"
+                },
+                "alertsOff": {
+                    "title": "Avvisi ancora spenti",
+                    "description": "La modalità silenziosa è finita, ma le telecamere non ti stanno ancora avvisando."
+                }
+            },
+            "busy": "Il dispositivo sta lavorando, un attimo...",
+            "duration": {
+                "title": "Per quanto tempo?",
+                "description": "Scegli per quanto tempo restano spente le notifiche e la registrazione.",
+                "label": "Durata della modalità silenziosa",
+                "chip": "{minutes} min"
+            },
+            "startAction": "Avvia la modalità silenziosa per {minutes} min",
+            "cancelAction": "Annulla la modalità silenziosa",
+            "cancelDialog": {
+                "title": "Riattivare gli avvisi?",
+                "description": "La modalità silenziosa finirà subito e le telecamere torneranno a notificare e registrare.",
+                "confirmAction": "Sì, riattiva gli avvisi",
+                "keepAction": "Mantieni la modalità silenziosa"
+            },
+            "alertsOff": {
+                "title": "Le telecamere potrebbero non avvisarti",
+                "description": "Il dispositivo non è riuscito a riattivare gli avvisi. Controlla che l'NVR sia acceso e raggiungibile, poi riprova.",
+                "retryAction": "Riprova"
+            },
+            "setup": {
+                "title": "Prima configura l'NVR",
+                "description": "Il dispositivo ha bisogno dell'indirizzo e dell'accesso del tuo NVR Reolink prima di poter silenziare le telecamere.",
+                "action": "Configura l'NVR"
+            },
+            "nvrProblemLink": "Vai alla pagina NVR.",
+            "commandError": "Il dispositivo non è riuscito a eseguire il comando. Riprova."
+        },
+        "nvr": {
+            "title": "NVR",
+            "loginTitle": "Accesso all'NVR",
+            "loginDescription": "L'indirizzo e l'account del tuo NVR Reolink sulla rete di casa.",
+            "host": {
+                "label": "Indirizzo dell'NVR",
+                "placeholder": "192.168.1.10",
+                "note": "L'indirizzo IP o il nome dell'NVR. Se lo incolli con http:// davanti, il dispositivo lo toglie."
+            },
+            "username": {
+                "label": "Nome utente",
+                "placeholder": "admin"
+            },
+            "password": {
+                "label": "Password",
+                "placeholder": "Password dell'NVR",
+                "savedPlaceholder": "Salvata",
+                "note": "La password di quell'account dell'NVR.",
+                "savedNote": "Una password è già salvata. Lascia vuoto per tenerla, oppure scrivine una nuova.",
+                "show": "Mostra la password",
+                "hide": "Nascondi la password"
+            },
+            "saveAction": "Salva",
+            "saveSuccess": "L'accesso è stato salvato. Il dispositivo lo sta verificando.",
+            "saveError": "Si è verificato un errore durante il salvataggio dell'accesso all'NVR",
+            "locked": {
+                "title": "L'accesso è bloccato per ora",
+                "description": "Finché la modalità silenziosa è attiva, o gli avvisi sono ancora spenti, il dispositivo ha bisogno dell'accesso salvato per riattivarli. Annulla la modalità silenziosa o aspetta che finisca, controlla che gli avvisi siano di nuovo attivi, poi cambia l'accesso."
+            },
+            "connectionTitle": "Connessione",
+            "connectionDescription": "Se il dispositivo riesce a raggiungere l'NVR con questo accesso.",
+            "testAction": "Prova la connessione",
+            "status": {
+                "checking": {
+                    "title": "Verifica dell'NVR...",
+                    "description": "Il dispositivo sta accedendo e contando le telecamere online."
+                },
+                "notConfigured": {
+                    "title": "Non ancora configurato",
+                    "description": "Salva indirizzo, nome utente e password per collegarti all'NVR."
+                },
+                "unknown": {
+                    "title": "Non ancora verificato",
+                    "description": "Premi Prova la connessione per controllare che il dispositivo raggiunga l'NVR."
+                },
+                "connected": {
+                    "title": "Connesso: {count} telecamera online | Connesso: {count} telecamere online",
+                    "description": "Il dispositivo ha effettuato l'accesso all'NVR e può silenziarlo."
+                },
+                "unreachable": {
+                    "title": "L'NVR non risponde",
+                    "description": "Controlla l'indirizzo e che l'NVR sia acceso e sulla stessa rete del dispositivo."
+                },
+                "loginRefused": {
+                    "title": "L'NVR ha rifiutato l'accesso",
+                    "description": "Controlla il nome utente e la password."
+                },
+                "loginPaused": {
+                    "title": "Accesso in pausa",
+                    "description": "L'NVR blocca l'account dopo alcune password sbagliate, quindi il dispositivo aspetta 10 minuti prima di riprovare. Controlla nome utente e password e salvali di nuovo, oppure aspetta 10 minuti."
+                }
+            }
+        },
+        "settings": {
+            "title": "Impostazioni",
+            "languageTitle": "Lingua",
+            "language": {
+                "label": "Lingua",
+                "note": "La lingua di questa interfaccia web."
+            }
+        }
+    }
+}

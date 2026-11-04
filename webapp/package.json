@@ -1,0 +1,57 @@
+{
+	"name": "gizmo-reolink-switch",
+	"version": "0.0.0",
+	"description": "Gizmo Reolink Switch web app, the dashboard embedded in the ESP32 firmware.",
+	"homepage": "https://github.com/open-gizmo/gizmo-reolink-switch",
+	"bugs": {
+		"url": "https://github.com/open-gizmo/gizmo-reolink-switch/issues"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/open-gizmo/gizmo-reolink-switch.git"
+	},
+	"license": "MIT",
+	"author": "Mauro Brambilla",
+	"private": true,
+	"type": "module",
+	"engines": {
+		"node": ">=24.21.0"
+	},
+	"scripts": {
+		"dev": "nuxt dev",
+		"build": "nuxt generate",
+		"build:embedded": "nuxt generate && gizmo-embed .output/public ../microcontroller/src/webui",
+		"preview": "nuxt preview",
+		"postinstall": "nuxt prepare",
+		"test": "vitest run"
+	},
+	"dependencies": {
+		"@brumaombra/ui-vintage": "0.9.36",
+		"@hugeicons/core-free-icons": "4.3.5",
+		"@hugeicons/vue": "1.0.8",
+		"@nuxtjs/i18n": "10.6.0",
+		"nuxt": "4.5.2"
+	},
+	"devDependencies": {
+		"@nuxt/test-utils": "4.3.2",
+		"@tailwindcss/vite": "4.2.4",
+		"@vue/test-utils": "2.5.1",
+		"gizmo-common": "github:open-gizmo/gizmo-common#df28792856da842d9c224546b53e575bd64c7fab",
+		"happy-dom": "20.14.5",
+		"tailwindcss": "4.2.4",
+		"vitest": "5.0.1"
+	},
+	"overrides": {
+		"archiver-utils": {
+			"glob": "13.0.6"
+		},
+		"@intlify/vue-i18n-extensions": {
+			"vue-i18n": "11.4.13",
+			"@intlify/shared": "11.4.13"
+		}
+	},
+	"allowScripts": {
+		"esbuild": true,
+		"vue-demi": true
+	}
+}

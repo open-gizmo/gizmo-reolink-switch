@@ -1,0 +1,152 @@
+{
+    "common": {
+        "syncingDevice": "Reading the device...",
+        "loadErrorTitle": "Couldn't read the device",
+        "loadErrorDescription": "The device didn't answer. Check that it's on and on the same network, then try again.",
+        "loadRetryAction": "Try again"
+    },
+    "nav": {
+        "home": {
+            "label": "Home",
+            "description": "Mute your cameras for a while"
+        },
+        "nvr": {
+            "label": "NVR",
+            "description": "Address and login of the Reolink NVR"
+        },
+        "settings": {
+            "label": "Settings",
+            "description": "Language and device info"
+        }
+    },
+    "api": {
+        "backendErrors": {
+            "invalid_quiet_mode_field": "The device didn't accept the duration. Choose a time between 1 minute and the maximum, then try again.",
+            "device_busy": "The device is busy with something else. Wait a few seconds and try again.",
+            "timer_running": "Quiet mode is already on. Cancel it first if you want to start it again.",
+            "timer_not_running": "Quiet mode is not on, so there is nothing to cancel.",
+            "nothing_to_restore": "The alerts are already on, so there is nothing to turn back on.",
+            "nvr_not_configured": "The NVR is not set up yet. Enter its address, username and password in the NVR page first.",
+            "invalid_nvr_field": "The device didn't accept the NVR address, username or password. Check them and try again. The address and the password can be up to 64 characters, the username up to 32.",
+            "nvr_change_while_muted": "The NVR login can't change while quiet mode is on or the alerts are still off. Turn the alerts back on first, then try again.",
+            "nvr_save_failed": "The device could not save the NVR login. Please try again."
+        }
+    },
+    "pages": {
+        "home": {
+            "title": "Quiet mode",
+            "state": {
+                "idle": {
+                    "title": "Alerts on",
+                    "description": "Your cameras are recording and notifying you as usual."
+                },
+                "running": {
+                    "title": "Quiet mode",
+                    "description": "left before the alerts come back on their own"
+                },
+                "alertsOff": {
+                    "title": "Alerts still off",
+                    "description": "Quiet mode is over, but your cameras are not alerting you yet."
+                }
+            },
+            "busy": "The device is working, one moment...",
+            "duration": {
+                "title": "How long?",
+                "description": "Choose how long the notifications and the recording stay off.",
+                "label": "Quiet mode duration",
+                "chip": "{minutes} min"
+            },
+            "startAction": "Start quiet mode for {minutes} min",
+            "cancelAction": "Cancel quiet mode",
+            "cancelDialog": {
+                "title": "Turn the alerts back on?",
+                "description": "Quiet mode will end now, and your cameras will start to notify and record again.",
+                "confirmAction": "Yes, turn alerts on",
+                "keepAction": "Keep quiet mode"
+            },
+            "alertsOff": {
+                "title": "Your cameras may not be alerting you",
+                "description": "The device couldn't turn the alerts back on. Check that the NVR is switched on and reachable, then try again.",
+                "retryAction": "Retry"
+            },
+            "setup": {
+                "title": "Set up your NVR first",
+                "description": "The switch needs the address and the login of your Reolink NVR before it can mute your cameras.",
+                "action": "Set up the NVR"
+            },
+            "nvrProblemLink": "Check the NVR page.",
+            "commandError": "The device couldn't run the command. Please try again."
+        },
+        "nvr": {
+            "title": "NVR",
+            "loginTitle": "NVR login",
+            "loginDescription": "The address and the account of your Reolink NVR on your home network.",
+            "host": {
+                "label": "NVR address",
+                "placeholder": "192.168.1.10",
+                "note": "The IP address or the name of the NVR. If you paste it with http:// in front, the device removes it."
+            },
+            "username": {
+                "label": "Username",
+                "placeholder": "admin"
+            },
+            "password": {
+                "label": "Password",
+                "placeholder": "Password of the NVR",
+                "savedPlaceholder": "Saved",
+                "note": "The password of that NVR account.",
+                "savedNote": "A password is saved. Leave this empty to keep it, or type a new one.",
+                "show": "Show password",
+                "hide": "Hide password"
+            },
+            "saveAction": "Save",
+            "saveSuccess": "The login has been saved. The device is checking it now.",
+            "saveError": "An error occurred while saving the NVR login",
+            "locked": {
+                "title": "The login is locked for now",
+                "description": "While quiet mode is on, or the alerts are still off, the device needs the saved login to turn them back on. Cancel quiet mode or wait for it to end, make sure the alerts are on again, then change the login."
+            },
+            "connectionTitle": "Connection",
+            "connectionDescription": "Whether the device can reach the NVR with this login.",
+            "testAction": "Test connection",
+            "status": {
+                "checking": {
+                    "title": "Checking the NVR...",
+                    "description": "The device is logging in and counting the online cameras."
+                },
+                "notConfigured": {
+                    "title": "Not set up yet",
+                    "description": "Save the address, the username and the password to connect to the NVR."
+                },
+                "unknown": {
+                    "title": "Not checked yet",
+                    "description": "Press Test connection to check that the device can reach the NVR."
+                },
+                "connected": {
+                    "title": "Connected: {count} camera online | Connected: {count} cameras online",
+                    "description": "The device logged in to the NVR and can mute it."
+                },
+                "unreachable": {
+                    "title": "The NVR doesn't answer",
+                    "description": "Check the address, and that the NVR is on and on the same network as the switch."
+                },
+                "loginRefused": {
+                    "title": "The NVR refused the login",
+                    "description": "Check the username and the password."
+                },
+                "loginPaused": {
+                    "title": "Login paused",
+                    "description": "The NVR locks the account after a few wrong passwords, so the device waits 10 minutes before it tries again. Check the username and the password and save them again, or just wait 10 minutes."
+                }
+            }
+        },
+        "settings": {
+            "title": "Settings",
+            "languageTitle": "Language",
+            "language": {
+                "label": "Language",
+                "note": "The language of this web interface."
+            }
+        }
+    }
+}

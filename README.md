@@ -4,19 +4,20 @@
 
 ### An ESP32-powered quiet-exit switch for Reolink NVR systems
 
-Gizmo Reolink Switch is a small ESP32 project that lets you temporarily mute Reolink NVR notifications and recording so you can leave home without triggering your own cameras. It combines a one-button interface, buzzer feedback, a 16x2 I2C LCD, WiFi connectivity, and direct Reolink API control.
+Gizmo Reolink Switch is a small ESP32 project that lets you temporarily mute Reolink NVR notifications and recording so you can leave home without triggering your own cameras. It combines a one-button interface, buzzer feedback, a 16x2 I2C LCD, a web dashboard for your phone, and direct Reolink API control. Everything is set up from the phone: no code, no credentials in the firmware.
 
 <p>
   <img alt="ESP32" src="https://img.shields.io/badge/esp32-ESP32-E7352C?logo=espressif&logoColor=white">
   <img alt="PlatformIO" src="https://img.shields.io/badge/platformio-PlatformIO-FF6B35?logo=platformio&logoColor=white">
   <img alt="Arduino" src="https://img.shields.io/badge/framework-Arduino-00979D?logo=arduino&logoColor=white">
+  <img alt="Nuxt 4" src="https://img.shields.io/badge/nuxt-4-00DC82?logo=nuxt&logoColor=white">
   <img alt="Reolink" src="https://img.shields.io/badge/integration-Reolink-2563EB">
   <img alt="LCD 16x2" src="https://img.shields.io/badge/display-16x2%20I2C%20LCD-0F766E">
   <img alt="License MIT" src="https://img.shields.io/badge/license-MIT-2563EB">
 </p>
 
 <p>
-  🏠 Quiet exit workflow • 📺 Friendly 16x2 LCD UI • 🔔 Buzzer feedback • 📡 WiFi-enabled • 🎥 Reolink NVR muting and restore
+  🏠 Quiet exit workflow • 📱 Web dashboard • 📺 Friendly 16x2 LCD UI • 🔔 Buzzer feedback • 📡 Wi-Fi setup from your phone • 🎥 Reolink NVR muting and restore
 </p>
 
 <p>
@@ -46,6 +47,8 @@ The firmware runs on an ESP32 and gives you a compact standalone interface:
 - The ESP32 connects to WiFi and tells the Reolink NVR to disable notifications and recording on active channels.
 - When the timer finishes, or when you cancel it, the firmware turns notifications and recording back on for the channels it muted.
 
+The same works from your phone: the web dashboard on the device starts and cancels the quiet mode, and shows the countdown.
+
 The device also provides:
 
 - A buzzer for immediate feedback.
@@ -69,32 +72,34 @@ The device also provides:
 
 - One-button interface with short-press and long-press actions.
 - Smart timer selection: `+1 minute` below 5 minutes, then `+5 minutes` increments, up to 60 minutes. One more press goes back to zero, so an overshoot can be fixed without starting the timer.
+- Web dashboard built into the firmware: start the quiet mode for a chosen time, watch the countdown, cancel it, and retry a failed restore, from any phone on your network.
+- Setup without code: the Wi-Fi is set from a setup hotspot with a captive portal, and the NVR address and login from the dashboard, which tests the connection and counts the online cameras.
 - Reolink integration using direct API calls from the ESP32.
 - Automatic restore of notifications and recording when the timer ends, with retries if the NVR is unreachable or a muted camera is offline.
 - Muted channels are saved in flash, so the cameras are restored even if the device reboots while they are muted.
-- Friendly 16x2 I2C LCD screens optimized for quick readability.
+- Friendly 16x2 I2C LCD screens optimized for quick readability, including the setup steps.
 - Buzzer cues for selection, start, countdown warning, completion, and cancellation.
-- WiFi and Reolink credentials managed through `platformio_secrets.ini`.
 - Optional development logging controlled through `PIO_DEV_MODE`.
-- GitHub Actions release workflow for tagged releases, started manually from the Actions tab.
+- Native tests for the firmware logic, and Vitest tests for the dashboard.
 
 <a id="architecture"></a>
 ## 🏗️ Architecture
 
-Gizmo Reolink Switch is built around three cooperating parts:
+Gizmo Reolink Switch is built around four cooperating parts:
 
-- 🔌 **ESP32 firmware** handles the button, timer logic, buzzer feedback, WiFi connection, LCD output, and Reolink API calls.
-- 📺 **16x2 I2C LCD** provides the user-facing status screens for idle mode, countdown mode, and restore events.
+- 🔌 **ESP32 firmware** handles the button, timer logic, buzzer feedback, Wi-Fi, LCD output, the web dashboard and its API, and the Reolink API calls.
+- 📱 **Nuxt web app** is the dashboard. It's built as a static site and embedded in the firmware, on the shared [gizmo-common](https://github.com/open-gizmo/gizmo-common) web layer.
+- 📺 **16x2 I2C LCD** provides the status screens for setup, idle mode, countdown mode, and restore events.
 - 🎥 **Reolink NVR** receives the API commands that mute and restore notifications and recording on active channels.
 
 ### 🔄 Data Flow
 
-1. The user presses the physical button to choose a quiet-mode duration or start/cancel the timer.
-2. The firmware updates the menu state, shows the current status on the LCD, and plays buzzer feedback.
+1. The user presses the button, or taps Start in the dashboard, to choose a quiet-mode duration and start or cancel the timer.
+2. The dashboard hands its command to the firmware's main loop, which runs it through the same steps as the button (only the main loop talks to the NVR).
 3. When quiet mode starts, the ESP32 authenticates with the Reolink NVR and disables notifications and recording on active channels.
-4. While the timer runs, the firmware keeps the display updated and warns near the end with short buzzer cues.
+4. While the timer runs, the LCD and the dashboard show the countdown, and the buzzer warns near the end.
 5. When the timer completes or is cancelled, the ESP32 turns notifications and recording back on for the muted channels and returns to the idle screen.
-6. If the restore fails, or a muted camera is offline, the idle screen shows `Alerts Still OFF` and the firmware retries every minute (hold the button to retry right away).
+6. If the restore fails, or a muted camera is offline, the LCD shows `Alerts Still OFF`, the dashboard shows a warning with a Retry button, and the firmware retries every minute.
 
 <a id="quick-start"></a>
 ## 🚀 Quick Start
@@ -107,53 +112,50 @@ Gizmo Reolink Switch is built around three cooperating parts:
 - 1 buzzer.
 - 16x2 I2C LCD with backpack, detected at `0x27`.
 - VS Code with the PlatformIO IDE extension installed, or PlatformIO Core installed locally.
+- Node.js 24.21 or newer, to build the dashboard.
 
 ### 🔧 Initial Setup
 
-1. **Download the latest release from the [GitHub Releases](https://github.com/open-gizmo/gizmo-reolink-switch/releases/latest) page, then extract the source code archive.**
-
-2. **Create your local secrets file.**
+1. **Clone the repository.**
 
 ```bash
-copy platformio_secrets.example.ini platformio_secrets.ini
+git clone https://github.com/open-gizmo/gizmo-reolink-switch.git
 ```
 
-3. **Fill in the following values.**
+2. **Build the dashboard.**
 
-- Your WiFi SSID and password.
-- Your Reolink host.
-- Your Reolink username and password.
-- `PIO_DEV_MODE=1` if you want serial logs (Keep it disabled for production use).
-
-4. **Build the firmware.**
-
-For VS Code, open the PlatformIO panel and click **Build**.
-
-For the CLI, run:
+From `webapp/`, install the exact dependencies of the lockfile and build the embedded dashboard:
 
 ```bash
-pio run
+npm ci
+npm run build:embedded
 ```
 
-5. **Upload to the ESP32.**
+This runs the Nuxt static build, then the `gizmo-embed` tool from gizmo-common turns it into gzipped C++ files in `microcontroller/src/webui/`. Re-run it any time you change the dashboard.
 
-For VS Code, open the PlatformIO panel and click **Upload**.
+3. **Build and upload the firmware.**
 
-For the CLI, run:
+For VS Code, open `microcontroller/` in the PlatformIO panel and click **Upload**.
+
+For the CLI, from `microcontroller/`:
 
 ```bash
 pio run --target upload
 ```
 
-6. **Open the serial monitor if needed when `PIO_DEV_MODE=1`**.
+No secrets file is needed. Create one from [platformio_secrets.example.ini](microcontroller/platformio_secrets.example.ini) only if you want the serial logs while developing.
 
-For VS Code, open the PlatformIO panel and click **Monitor**.
+4. **Connect the switch to your Wi-Fi.**
 
-For the CLI, run:
+On the first boot there's no saved network, so the LCD shows `Join Wi-Fi Setup` and the switch opens an open hotspot called `Gizmo-Reolink`. Join it with your phone, and the setup page opens by itself: pick your network and type its password.
 
-```bash
-pio device monitor
-```
+5. **Set up the NVR.**
+
+The LCD now shows `Set Up NVR` and the address of the switch. Open it in the browser (or `http://reolink-switch.local/`), go to the **NVR** page, and enter the address, username and password of your NVR. The switch checks the login and shows how many cameras are online.
+
+6. **Leave home quietly.**
+
+Press the button to choose the time and hold it to start, or do the same from the dashboard's home page.
 
 <a id="hardware"></a>
 ## 🔌 Hardware
@@ -178,10 +180,11 @@ Current pin assignments from the firmware configuration:
 
 ### ⚙️ General
 
-The main firmware entry point is [src/main.cpp](src/main.cpp). It:
+The main firmware entry point is [src/main.cpp](microcontroller/src/main.cpp). It:
 
 - Initializes all modules.
-- Halts safely if WiFi or Reolink credentials are missing.
+- Shows the setup steps until the Wi-Fi and the NVR are set up.
+- Runs the dashboard's commands, and publishes what the switch is doing for it.
 - Polls the button.
 - Updates the timer state machine.
 - Keeps the LCD and buzzer in sync with the current state.
@@ -193,17 +196,20 @@ The firmware is split into focused modules under `src/`:
 - 🔘 `button/` reads the physical button and emits semantic events.
 - 🔔 `buzzer/` drives audible feedback.
 - 📺 `display/` manages the LCD screens and layout.
+- 🔐 `nvr/` saves the NVR login set from the dashboard in NVS, and checks the login the dashboard sends.
+- 🛰️ `remote/` hands the dashboard's commands to the main loop, and publishes what the switch is doing for the dashboard.
+- 🌐 `server/` serves the dashboard and its API, one file per endpoint.
 - ⏱️ `menu/` implements timer selection and countdown state.
-- 📡 `wifi/` connects the ESP32 to the local network and reconnects when the connection drops.
+- 📡 `wifi/` runs the Wi-Fi setup hotspot and keeps the connection, with the shared gizmo-common library.
 - 💾 `storage/` saves the muted push and recording settings in NVS so a reboot can't leave the cameras muted.
 - 🧮 `channels/` keeps track of which setting is muted on which channel, from the answer to each NVR command.
 - 🎥 `reolink/` authenticates against the NVR and toggles notifications and recording.
 - 🧾 `serial/` turns development logs on in dev mode (logging itself comes from the shared [gizmo-common](https://github.com/open-gizmo/gizmo-common) library, like the `MM:SS` formatting).
-- ⚙️ `config/` centralizes pins, timing values, credentials, and display settings.
+- ⚙️ `config/` centralizes pins, timing values, network names, and display settings.
 
 ### 🎥 Reolink integration
 
-The Reolink API logic lives in [src/reolink/reolink.cpp](src/reolink/reolink.cpp).
+The Reolink API logic lives in [src/reolink/reolink.cpp](microcontroller/src/reolink/reolink.cpp).
 
 Current implementation highlights:
 
@@ -215,54 +221,71 @@ Current implementation highlights:
 
 The firmware mutes the active channels when quiet mode starts and turns them back on afterward. Restoring always sets notifications and recording to enabled: channels where you had disabled them on purpose come back enabled.
 
+### 🌐 Web API
+
+Every response has the OpenGizmo shape `{ errorId, errorMessage, data }`, and only requests from the dashboard's own page are accepted:
+
+- `GET /api/status` returns the timer, the remaining time, whether alerts are still off, whether the switch is busy, the NVR state and the online cameras.
+- `POST /api/quiet-mode` takes `{ action: "start", minutes }`, `{ action: "cancel" }` or `{ action: "retry" }`. The main loop runs it, and the dashboard follows it with `/api/status`.
+- `GET /api/nvr` returns the NVR address and username, and whether a password is saved (the password is never sent back).
+- `POST /api/nvr` saves a new login (an empty password keeps the saved one) and checks it. It's refused while cameras are muted, so they are always restored by the NVR that muted them.
+- `POST /api/nvr-test` checks the login again.
+- The Wi-Fi setup and device routes come from gizmo-common.
+
 ### 🎨 User interface
 
 The LCD intentionally shows concise, human-friendly screens rather than raw log output. Serial logs stay verbose for debugging, while the display stays simple and readable for everyday use.
 
 ### 🧪 Tests
 
-The hardware-free logic is tested on your computer, no board needed:
+The hardware-free firmware logic is tested on your computer, no board needed. From `microcontroller/`:
 
 ```bash
 pio test -e native
 ```
 
-The tests live in [test/](test/). They build the logic modules against a small fake `Arduino.h` ([test/stubs/Arduino.h](test/stubs/Arduino.h)) whose `millis()` is a clock the tests control, so they can fast-forward the timer and even cross a `millis()` rollover instantly.
+The tests live in [microcontroller/test/](microcontroller/test/). They build the logic modules against a small fake `Arduino.h` ([test/stubs/Arduino.h](microcontroller/test/stubs/Arduino.h)) whose `millis()` is a clock the tests control, so they can fast-forward the timer and even cross a `millis()` rollover instantly. They also cover the checks of the NVR login and of the dashboard commands.
+
+The dashboard has its own tests. From `webapp/`:
+
+```bash
+npm test
+```
+
+### 📱 Web App Overview
+
+The dashboard lives in `webapp/`. It's a Nuxt 4 app on the shared gizmo-common web layer, like the other OpenGizmo web apps:
+
+- **Home**: the state of the alerts, the countdown, the duration and Start, Cancel, and Retry when alerts are still off.
+- **NVR**: the address and login of the NVR, and the connection check.
+- **Settings**: the language (English or Italian), and the device details with restart and forget network.
+- **Wi-Fi**: change the network, and the setup page the hotspot opens.
+
+`npm run dev` starts it with a mock server that behaves like the switch, so you can work on it without a board.
 
 <a id="configuration"></a>
 ## ⚙️ Configuration
 
 ### Secrets file
 
-The project uses PlatformIO extra configs:
-
-```ini
-[platformio]
-extra_configs = platformio_secrets.ini
-```
-
-Example secrets file:
+Nothing needs to be compiled in: the Wi-Fi and the NVR login are set from the phone and saved on the board. The optional secrets file only turns on the serial logs while developing:
 
 ```ini
 [env:esp32dev]
 build_flags =
-	-D PIO_WIFI_SSID='"your-wifi-ssid"'
-	-D PIO_WIFI_PASSWORD='"your-wifi-password"'
-	-D PIO_REOLINK_HOST='"your-reolink-host"'
-	-D PIO_REOLINK_USERNAME='"your-reolink-username"'
-	-D PIO_REOLINK_PASSWORD='"your-reolink-password"'
-	-D PIO_DEV_MODE=0
+	-D PIO_DEV_MODE=1
 ```
 
-Use [platformio_secrets.example.ini](platformio_secrets.example.ini) as the template.
+Use [platformio_secrets.example.ini](microcontroller/platformio_secrets.example.ini) as the template. The real file is ignored by git.
 
 ### Key runtime settings
 
-The main shared constants live in [src/config/config.h](src/config/config.h) and [src/config/config.cpp](src/config/config.cpp), including:
+The main shared constants live in [config.h](microcontroller/src/config/config.h) and [config.cpp](microcontroller/src/config/config.cpp), including:
 
 - Pin assignments.
+- The hostname and the name of the setup hotspot.
 - Button debounce and long-press timing.
-- WiFi and HTTP timing.
+- HTTP timing and the NVR login pause.
 - Timer step rules.
 - Buzzer durations.
 - LCD geometry and address.
@@ -273,10 +296,14 @@ The main shared constants live in [src/config/config.h](src/config/config.h) and
 - LCD powers on but shows no text: verify SDA/SCL wiring and confirm the backpack address matches the configured `0x27`.
 - Button press ignored: while the LCD shows `Connecting...` or a result, the firmware is talking to the NVR and drops presses on purpose (a late press would act on the next screen). Press again once the idle or countdown screen is back.
 - Button does nothing: verify the wiring against the input mode expected by the firmware.
-- Quiet mode does not start: check WiFi connectivity and Reolink credentials first.
+- Quiet mode does not start: open the dashboard's **NVR** page and check the connection there. It says whether the NVR can't be found or refused the login.
+- The `Gizmo-Reolink` hotspot doesn't appear: it only opens when there's no saved network or the saved one fails to connect.
+- `reolink-switch.local` doesn't open: some networks and devices don't support mDNS. Use the IP address the LCD shows, or the one on the dashboard's settings page.
+- `NVR Not Set` / `Use the web app`: no NVR login is saved yet. Open the dashboard and set it on the **NVR** page.
+- The NVR page won't save: the login can't change while cameras are muted (they must be restored by the NVR that muted them). Wait for the timer to end, or cancel it, and retry if alerts are still off.
 - NVR state does not restore: the LCD shows `Alerts Still OFF` and the firmware keeps retrying. Hold the button to retry right away, or enable `PIO_DEV_MODE=1` and inspect the serial logs.
 - `Partly Muted!` after starting the timer: the NVR refused some commands (for example recording on a channel without a disk). The muted settings are still restored at the end, and the refused ones were never changed.
-- `Login Paused` / `Check password`: the NVR refused a login, so the firmware waits 10 minutes before trying again (repeated wrong-password logins can lock the NVR account). Fix the credentials in `platformio_secrets.ini` and reflash, or wait.
+- `Login Paused` / `Check password`: the NVR refused a login, so the firmware waits 10 minutes before trying again (repeated wrong-password logins can lock the NVR account). Fix the username or password on the dashboard's **NVR** page (saving a new login ends the pause), or wait.
 
 <a id="license"></a>
 ## 📄 License
