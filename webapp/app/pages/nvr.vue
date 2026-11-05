@@ -6,7 +6,6 @@ import { HugeiconsIcon } from '@hugeicons/vue';
 import { Button } from '@brumaombra/ui-vintage/button';
 import { EmptyStateCard } from '@brumaombra/ui-vintage/empty-state-card';
 import { LoadingStateCard } from '@brumaombra/ui-vintage/loading-state-card';
-import { PageHeader } from '@brumaombra/ui-vintage/page-header';
 import { loadNvr, useStatusPolling } from '~/composables/useSwitchState.js';
 import { useGlobalStore } from '~/composables/stores/useGlobalStore.js';
 import StatusGate from '~/components/device/StatusGate.vue';
@@ -43,10 +42,7 @@ definePageMeta({
 </script>
 
 <template>
-    <div class="mx-auto w-full max-w-2xl space-y-6">
-        <!-- Title -->
-        <PageHeader :title="t('pages.nvr.title')" size="medium" />
-
+    <GizmoPage :title="t('pages.nvr.title')">
         <StatusGate>
             <!-- The login couldn't be read: offer to try again (an empty form would look like a new device) -->
             <EmptyStateCard v-if="isNvrLoadFailed && !globalStore.isNvrLoaded" :icon="Alert02Icon" :title="t('common.loadErrorTitle')" :description="t('common.loadErrorDescription')">
@@ -69,5 +65,5 @@ definePageMeta({
                 <NvrConnection />
             </div>
         </StatusGate>
-    </div>
+    </GizmoPage>
 </template>

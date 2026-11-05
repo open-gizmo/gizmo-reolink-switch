@@ -29,6 +29,9 @@ const host = ref(globalStore.value.nvr.host);
 const username = ref(globalStore.value.nvr.username);
 const password = ref('');
 
+// Help under the group: what the login is, and what the address can be (a field has no room for its own note)
+const loginHint = computed(() => `${t('pages.nvr.loginDescription')} ${t('pages.nvr.host.note')}`);
+
 // Reactive device state
 const nvr = computed(() => globalStore.value.nvr);
 
@@ -71,25 +74,12 @@ const handleSave = async () => {
         </Alert>
 
         <!-- The three fields of the login, one row each: icon and label, the field full width under them -->
-        <ListGroup :title="t('pages.nvr.loginTitle')" :hint="t('pages.nvr.loginDescription')">
-            <!-- Address -->
-            <li data-slot="list-row" class="px-4 py-3 md:px-5">
-                <div class="flex min-h-7 items-center gap-2 md:gap-3">
-                    <HugeiconsIcon :icon="CctvIcon" class="size-4 shrink-0 text-muted-foreground" />
-                    <label for="nvr-host" class="min-w-0 flex-1 text-[0.8125rem] font-semibold text-foreground md:text-sm">{{ t('pages.nvr.host.label') }}</label>
-                </div>
-                <Input id="nvr-host" v-model="host" class="mt-2" type="text" inputmode="url" autocapitalize="none" autocomplete="off" spellcheck="false" :maxlength="NVR_HOST_MAX_LENGTH" :disabled="isLocked" :placeholder="t('pages.nvr.host.placeholder')" />
-                <p class="mt-2 text-[0.6875rem] text-muted-foreground md:text-xs">{{ t('pages.nvr.host.note') }}</p>
-            </li>
+        <ListGroup :title="t('pages.nvr.loginTitle')" :hint="loginHint">
+            <!-- Address (autocapitalize and spellcheck are inherited by the field from its row) -->
+            <GizmoInputRow id="nvr-host" v-model="host" :label="t('pages.nvr.host.label')" :icon="CctvIcon" autocapitalize="none" spellcheck="false" :maxlength="NVR_HOST_MAX_LENGTH" :disabled="isLocked" :placeholder="t('pages.nvr.host.placeholder')" />
 
             <!-- Username -->
-            <li data-slot="list-row" class="px-4 py-3 md:px-5">
-                <div class="flex min-h-7 items-center gap-2 md:gap-3">
-                    <HugeiconsIcon :icon="UserIcon" class="size-4 shrink-0 text-muted-foreground" />
-                    <label for="nvr-username" class="min-w-0 flex-1 text-[0.8125rem] font-semibold text-foreground md:text-sm">{{ t('pages.nvr.username.label') }}</label>
-                </div>
-                <Input id="nvr-username" v-model="username" class="mt-2" type="text" autocapitalize="none" autocomplete="off" spellcheck="false" :maxlength="NVR_USERNAME_MAX_LENGTH" :disabled="isLocked" :placeholder="t('pages.nvr.username.placeholder')" />
-            </li>
+            <GizmoInputRow id="nvr-username" v-model="username" :label="t('pages.nvr.username.label')" :icon="UserIcon" autocapitalize="none" spellcheck="false" :maxlength="NVR_USERNAME_MAX_LENGTH" :disabled="isLocked" :placeholder="t('pages.nvr.username.placeholder')" />
 
             <!-- Password (never sent back by the device: empty, with a hint when one is saved) -->
             <li data-slot="list-row" class="px-4 py-3 md:px-5">

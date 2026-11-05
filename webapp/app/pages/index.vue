@@ -12,7 +12,6 @@ import { Alert, AlertDescription, AlertTitle } from '@brumaombra/ui-vintage/aler
 import { Button } from '@brumaombra/ui-vintage/button';
 import { EmptyStateCard } from '@brumaombra/ui-vintage/empty-state-card';
 import { ListGroup } from '@brumaombra/ui-vintage/list';
-import { PageHeader } from '@brumaombra/ui-vintage/page-header';
 import { ResponsiveDialog } from '@brumaombra/ui-vintage/responsive-dialog';
 import { buildDurationOptions, clampMinutes, DEFAULT_MINUTES, getHomeState, getNvrStatusDetails, hasNvrProblem, pickDefaultMinutes } from '~/composables/useQuietMode.js';
 import { cancelQuietMode, retryRestore, startQuietMode, useCountdown, useStatusPolling } from '~/composables/useSwitchState.js';
@@ -100,10 +99,7 @@ definePageMeta({
 </script>
 
 <template>
-    <div class="mx-auto w-full max-w-2xl space-y-6">
-        <!-- Title -->
-        <PageHeader :title="t('pages.home.title')" size="medium" />
-
+    <GizmoPage :title="t('pages.home.title')">
         <StatusGate>
             <!-- The NVR is not set up: nothing to mute yet -->
             <EmptyStateCard v-if="homeState === 'setup'" :icon="CctvIcon" :title="t('pages.home.setup.title')" :description="t('pages.home.setup.description')" data-testid="setup-card">
@@ -186,5 +182,5 @@ definePageMeta({
                 </Button>
             </template>
         </ResponsiveDialog>
-    </div>
+    </GizmoPage>
 </template>

@@ -2,7 +2,6 @@
 import { computed, ref } from 'vue';
 import GlobeIcon from '@hugeicons/core-free-icons/GlobeIcon';
 import { ListGroup, ListRow } from '@brumaombra/ui-vintage/list';
-import { PageHeader } from '@brumaombra/ui-vintage/page-header';
 
 const { locale, locales, setLocale, t } = useI18n();
 const isLanguagePickerOpen = ref(false);
@@ -25,10 +24,7 @@ definePageMeta({
 </script>
 
 <template>
-    <div class="mx-auto w-full max-w-2xl space-y-6">
-        <!-- Title -->
-        <PageHeader :title="t('pages.settings.title')" size="medium" />
-
+    <GizmoPage :title="t('pages.settings.title')">
         <!-- Language -->
         <ListGroup :title="t('pages.settings.languageTitle')">
             <ListRow :label="t('pages.settings.language.label')" :icon="GlobeIcon" :value="selectedLanguageName" action @click="isLanguagePickerOpen = true" />
@@ -39,5 +35,5 @@ definePageMeta({
 
         <!-- Language picker -->
         <OptionPickerDialog :visible="isLanguagePickerOpen" :title="t('pages.settings.language.label')" :description="t('pages.settings.language.note')" :options="languageOptions" :model-value="locale" @update:model-value="handleSelectLanguage" @close="isLanguagePickerOpen = false" />
-    </div>
+    </GizmoPage>
 </template>

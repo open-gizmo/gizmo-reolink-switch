@@ -36,7 +36,7 @@
 		"@nuxt/test-utils": "4.3.2",
 		"@tailwindcss/vite": "4.2.4",
 		"@vue/test-utils": "2.5.1",
-		"gizmo-common": "github:open-gizmo/gizmo-common#f2932b42f60565c51bffc0a1ab65d13a7b5fc43f",
+		"gizmo-common": "github:open-gizmo/gizmo-common#d7603d278500bd6df702bdea44d02fade84861c2",
 		"happy-dom": "20.14.5",
 		"tailwindcss": "4.2.4",
 		"vitest": "5.0.1"
