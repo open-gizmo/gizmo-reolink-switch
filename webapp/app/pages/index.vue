@@ -11,7 +11,7 @@ import { HugeiconsIcon } from '@hugeicons/vue';
 import { Alert, AlertDescription, AlertTitle } from '@brumaombra/ui-vintage/alert';
 import { Button } from '@brumaombra/ui-vintage/button';
 import { EmptyStateCard } from '@brumaombra/ui-vintage/empty-state-card';
-import { ListGroup } from '@brumaombra/ui-vintage/list';
+import { ListGroup, ListRow } from '@brumaombra/ui-vintage/list';
 import { ResponsiveDialog } from '@brumaombra/ui-vintage/responsive-dialog';
 import { buildDurationOptions, clampMinutes, DEFAULT_MINUTES, getHomeState, getNvrStatusDetails, hasNvrProblem, pickDefaultMinutes } from '~/composables/useQuietMode.js';
 import { cancelQuietMode, retryRestore, startQuietMode, useCountdown, useStatusPolling } from '~/composables/useSwitchState.js';
@@ -148,16 +148,10 @@ definePageMeta({
 
                     <!-- Duration: the choices are chips in one row of the group, so the main flow stays one tap -->
                     <ListGroup :title="t('pages.home.duration.title')" :hint="t('pages.home.duration.description')">
-                        <li data-slot="list-row" class="px-4 py-3 md:px-5">
-                            <!-- Icon and label -->
-                            <div class="flex min-h-7 items-center gap-2 md:gap-3">
-                                <HugeiconsIcon :icon="Timer01Icon" class="size-4 shrink-0 text-muted-foreground" />
-                                <span class="min-w-0 flex-1 text-[0.8125rem] font-semibold text-foreground md:text-sm">{{ t('pages.home.duration.label') }}</span>
-                            </div>
-
+                        <ListRow :label="t('pages.home.duration.label')" :icon="Timer01Icon">
                             <!-- Durations -->
-                            <DurationPicker class="mt-2" :model-value="effectiveMinutes" :max-minutes="status.maxMinutes" :disabled="isBusy" @update:model-value="handleDurationChange" />
-                        </li>
+                            <DurationPicker :model-value="effectiveMinutes" :max-minutes="status.maxMinutes" :disabled="isBusy" @update:model-value="handleDurationChange" />
+                        </ListRow>
                     </ListGroup>
 
                     <Button variant="primary" class="w-full" size="lg" :disabled="isBusy" :loading="isBusy" data-testid="start-button" @click="handleStartPress">

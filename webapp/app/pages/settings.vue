@@ -2,6 +2,8 @@
 import { computed, ref } from 'vue';
 import GlobeIcon from '@hugeicons/core-free-icons/GlobeIcon';
 import { ListGroup, ListRow } from '@brumaombra/ui-vintage/list';
+import { LanguageFlag } from '@brumaombra/ui-vintage/language-flag';
+import { OptionPickerDialog } from '@brumaombra/ui-vintage/option-picker-dialog';
 
 const { locale, locales, setLocale, t } = useI18n();
 const isLanguagePickerOpen = ref(false);
@@ -34,6 +36,10 @@ definePageMeta({
         <GizmoDeviceCard />
 
         <!-- Language picker -->
-        <OptionPickerDialog :visible="isLanguagePickerOpen" :title="t('pages.settings.language.label')" :description="t('pages.settings.language.note')" :options="languageOptions" :model-value="locale" @update:model-value="handleSelectLanguage" @close="isLanguagePickerOpen = false" />
+        <OptionPickerDialog v-model:open="isLanguagePickerOpen" :title="t('pages.settings.language.label')" :description="t('pages.settings.language.note')" :options="languageOptions" :model-value="locale" @update:model-value="handleSelectLanguage">
+            <template #icon="{ option }">
+                <LanguageFlag :code="option.value" size="lg" />
+            </template>
+        </OptionPickerDialog>
     </GizmoPage>
 </template>
