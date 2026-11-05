@@ -1,6 +1,7 @@
 #include "display.h"
 
 #include <cstring>
+#include <gizmo/text.h>
 #include <Wire.h>
 #include <hd44780.h>
 #include <hd44780ioClass/hd44780_I2Cexp.h>
@@ -85,7 +86,7 @@ namespace {
 		} else {
 			// If the current line index is at the last active row, scroll the buffer up by one line
 			for (uint8_t index = 0; index < activeDisplayRows - 1; index += 1) {
-				strncpy(displayLines[index], displayLines[index + 1], MAX_DISPLAY_LINE_LENGTH + 1);
+				gizmo::copyString(displayLines[index], displayLines[index + 1], sizeof(displayLines[index]));
 			}
 
 			// Clear the last line after scrolling

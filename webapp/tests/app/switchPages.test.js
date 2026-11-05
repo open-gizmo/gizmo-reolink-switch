@@ -108,7 +108,7 @@ const registerDeviceEndpoints = () => {
     registerEndpoint('/api/device', () => ({
         errorId: null,
         errorMessage: null,
-        data: { name: 'Reolink Switch', version: 'v2026.11.04.1', uptimeSeconds: 93784, freeHeap: 187432, ssid: 'Home', accessPointActive: false, ip: '192.168.1.42', hostname: 'reolink-switch.local', signalQuality: 74 }
+        data: { name: 'Reolink Switch', version: 'v2026.11.04.1', uptimeSeconds: 93784, freeHeap: 187432, ssid: 'Home', accessPointActive: false, ip: '192.168.1.42', hostname: 'gizmo-reolink-switch.local', signalQuality: 74 }
     }));
 };
 
@@ -639,7 +639,7 @@ describe('settings page', () => {
     it('shows the language and the device card', async () => {
         const wrapper = await mountPage(SettingsPage);
         expect(wrapper.text()).toContain('English');
-        await vi.waitFor(() => expect(wrapper.text()).toContain('reolink-switch.local'));
+        await vi.waitFor(() => expect(wrapper.text()).toContain('gizmo-reolink-switch.local'));
         expect(wrapper.text()).toContain('Restart');
     });
 

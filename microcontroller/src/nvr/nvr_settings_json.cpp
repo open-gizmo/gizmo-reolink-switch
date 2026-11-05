@@ -2,6 +2,7 @@
 
 #include <ctype.h>
 #include <string.h>
+#include <gizmo/text.h>
 
 namespace {
 	// Check whether a character can be part of an NVR address (a name, an IPv4 or bracketed IPv6 address, and a port)
@@ -34,9 +35,8 @@ namespace {
 			}
 		}
 
-		// Copy the address
-		memcpy(output, value, length);
-		output[length] = '\0';
+		// Copy the address (its first length characters, without the slashes)
+		gizmo::copyString(output, value, length + 1);
 		return true;
 	}
 
@@ -50,7 +50,7 @@ namespace {
 		if (length == 0 || length >= outputSize) {
 			return false;
 		}
-		memcpy(output, text, length + 1);
+		gizmo::copyString(output, text, outputSize);
 		return true;
 	}
 }
@@ -85,7 +85,7 @@ const char *applyNvrSettingsFromJson(JsonObjectConst json, NvrSettings &settings
 			return "password";
 		}
 		if (password.as<const char *>()[0] != '\0') {
-			strcpy(updated.password, password.as<const char *>());
+			gizmo::copyString(updated.password, password.as<const char *>(), sizeof(updated.password));
 		}
 	}
 

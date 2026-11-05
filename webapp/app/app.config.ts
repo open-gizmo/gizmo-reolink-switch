@@ -6,6 +6,10 @@ import Settings01Icon from '@hugeicons/core-free-icons/Settings01Icon';
 export default defineAppConfig({
     gizmo: {
         name: 'Reolink Switch',
+
+        // mDNS name of the firmware (http://gizmo-reolink-switch.local)
+        hostname: 'gizmo-reolink-switch',
+
         logo: '/logo.svg',
         homePath: '/',
 

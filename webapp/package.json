@@ -26,7 +26,7 @@
 		"test": "vitest run"
 	},
 	"dependencies": {
-		"@brumaombra/ui-vintage": "0.9.36",
+		"@brumaombra/ui-vintage": "0.9.42",
 		"@hugeicons/core-free-icons": "4.3.5",
 		"@hugeicons/vue": "1.0.8",
 		"@nuxtjs/i18n": "10.6.0",
@@ -36,7 +36,7 @@
 		"@nuxt/test-utils": "4.3.2",
 		"@tailwindcss/vite": "4.2.4",
 		"@vue/test-utils": "2.5.1",
-		"gizmo-common": "github:open-gizmo/gizmo-common#df28792856da842d9c224546b53e575bd64c7fab",
+		"gizmo-common": "github:open-gizmo/gizmo-common#f2932b42f60565c51bffc0a1ab65d13a7b5fc43f",
 		"happy-dom": "20.14.5",
 		"tailwindcss": "4.2.4",
 		"vitest": "5.0.1"

@@ -151,7 +151,7 @@ On the first boot there's no saved network, so the LCD shows `Join Wi-Fi Setup` 
 
 5. **Set up the NVR.**
 
-The LCD now shows `Set Up NVR` and the address of the switch. Open it in the browser (or `http://reolink-switch.local/`), go to the **NVR** page, and enter the address, username and password of your NVR. The switch checks the login and shows how many cameras are online.
+The LCD now shows `Set Up NVR` and the address of the switch. Open it in the browser (or `http://gizmo-reolink-switch.local/`), go to the **NVR** page, and enter the address, username and password of your NVR. The switch checks the login and shows how many cameras are online.
 
 6. **Leave home quietly.**
 
@@ -298,7 +298,7 @@ The main shared constants live in [config.h](microcontroller/src/config/config.h
 - Button does nothing: verify the wiring against the input mode expected by the firmware.
 - Quiet mode does not start: open the dashboard's **NVR** page and check the connection there. It says whether the NVR can't be found or refused the login.
 - The `Gizmo-Reolink` hotspot doesn't appear: it only opens when there's no saved network or the saved one fails to connect.
-- `reolink-switch.local` doesn't open: some networks and devices don't support mDNS. Use the IP address the LCD shows, or the one on the dashboard's settings page.
+- `gizmo-reolink-switch.local` doesn't open: some networks and devices don't support mDNS. Use the IP address the LCD shows, or the one on the dashboard's settings page.
 - `NVR Not Set` / `Use the web app`: no NVR login is saved yet. Open the dashboard and set it on the **NVR** page.
 - The NVR page won't save: the login can't change while cameras are muted (they must be restored by the NVR that muted them). Wait for the timer to end, or cancel it, and retry if alerts are still off.
 - NVR state does not restore: the LCD shows `Alerts Still OFF` and the firmware keeps retrying. Hold the button to retry right away, or enable `PIO_DEV_MODE=1` and inspect the serial logs.

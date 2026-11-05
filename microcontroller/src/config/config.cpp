@@ -17,7 +17,7 @@ namespace config {
 	const char FIRMWARE_VERSION[] = PIO_FIRMWARE_VERSION;
 
 	// Network names and the Wi-Fi setup
-	const char HOSTNAME[] = "reolink-switch"; // http://reolink-switch.local
+	const char HOSTNAME[] = "gizmo-reolink-switch"; // http://gizmo-reolink-switch.local, always the project name
 	const char ACCESS_POINT_NAME[] = "Gizmo-Reolink"; // Open hotspot for the Wi-Fi setup, when no saved network works (it fits the LCD)
 	const char SETUP_PAGE_PATH[] = "/ap-setup"; // Page of the web app the hotspot clients are sent to
 	const char ASSET_PATH_PREFIX[] = "/_nuxt/"; // Files of the web app, never redirected by the hotspot
