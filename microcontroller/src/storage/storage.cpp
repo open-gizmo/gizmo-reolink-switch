@@ -2,11 +2,11 @@
 
 #include <Preferences.h>
 
+#include "config/config.h"
 #include "serial/serial.h"
 
 namespace {
 	// NVS namespace and keys (keys are limited to 15 characters)
-	constexpr char STORAGE_NAMESPACE[] = "reolink";
 	constexpr char MUTED_PUSH_KEY[] = "mutedPush";
 	constexpr char MUTED_RECORDING_KEY[] = "mutedRec";
 
@@ -26,7 +26,7 @@ namespace {
 
 // Open the NVS namespace and load the saved muted channels
 void setupStorage() {
-	storageReady = preferences.begin(STORAGE_NAMESPACE, false);
+	storageReady = preferences.begin(config::STORAGE_NAMESPACE, false);
 
 	// If NVS is not available, keep working with the RAM copy only
 	if (!storageReady) {

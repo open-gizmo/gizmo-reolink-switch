@@ -16,6 +16,9 @@ namespace config {
 	const char PROJECT_NAME[] = "Gizmo Reolink Switch";
 	const char FIRMWARE_VERSION[] = PIO_FIRMWARE_VERSION;
 
+	// NVS namespace of the project settings (the project name, shortened: namespaces fit 15 characters)
+	const char STORAGE_NAMESPACE[] = "gizmo-reolink";
+
 	// Network names and the Wi-Fi setup
 	const char HOSTNAME[] = "gizmo-reolink-switch"; // http://gizmo-reolink-switch.local, always the project name
 	const char ACCESS_POINT_NAME[] = "Gizmo-Reolink"; // Open hotspot for the Wi-Fi setup, when no saved network works (it fits the LCD)

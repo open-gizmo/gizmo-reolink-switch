@@ -4,8 +4,7 @@
 #include <Preferences.h>
 
 namespace {
-	// NVS namespace and keys (apart from the muted channels, which keep their own namespace)
-	const char NAMESPACE[] = "nvr";
+	// NVS keys (in the project namespace, next to the muted channels)
 	const char HOST_KEY[] = "host";
 	const char USERNAME_KEY[] = "username";
 	const char PASSWORD_KEY[] = "password";
@@ -30,7 +29,7 @@ void loadNvrSettings() {
 	Preferences preferences;
 
 	// Read the saved login (missing keys stay empty)
-	preferences.begin(NAMESPACE, true);
+	preferences.begin(config::STORAGE_NAMESPACE, true);
 	preferences.getString(HOST_KEY, currentSettings.host, sizeof(currentSettings.host));
 	preferences.getString(USERNAME_KEY, currentSettings.username, sizeof(currentSettings.username));
 	preferences.getString(PASSWORD_KEY, currentSettings.password, sizeof(currentSettings.password));
@@ -58,7 +57,7 @@ bool updateNvrSettings(const NvrSettings &settings) {
 	Preferences preferences;
 
 	// Save the login
-	if (!preferences.begin(NAMESPACE, false)) {
+	if (!preferences.begin(config::STORAGE_NAMESPACE, false)) {
 		return false;
 	}
 	const bool isSaved = saveText(preferences, HOST_KEY, settings.host) && saveText(preferences, USERNAME_KEY, settings.username) && saveText(preferences, PASSWORD_KEY, settings.password);

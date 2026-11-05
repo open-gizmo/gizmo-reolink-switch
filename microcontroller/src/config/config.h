@@ -23,6 +23,9 @@ namespace config {
 	extern const uint8_t DISPLAY_SDA_PIN;
 	extern const uint8_t DISPLAY_SCL_PIN;
 
+	// NVS namespace of the project settings: the NVR login and the muted channels (the Wi-Fi has its own, from gizmo-common)
+	extern const char STORAGE_NAMESPACE[];
+
 	// NVR login sizes (set from the web app and saved in NVS), terminator included
 	constexpr size_t NVR_HOST_SIZE = 65;
 	constexpr size_t NVR_USERNAME_SIZE = 33;
