@@ -6,13 +6,14 @@ import CctvIcon from '@hugeicons/core-free-icons/CctvIcon';
 import NotificationOff01Icon from '@hugeicons/core-free-icons/NotificationOff01Icon';
 import Notification01Icon from '@hugeicons/core-free-icons/Notification01Icon';
 import RefreshIcon from '@hugeicons/core-free-icons/RefreshIcon';
+import Timer01Icon from '@hugeicons/core-free-icons/Timer01Icon';
 import { HugeiconsIcon } from '@hugeicons/vue';
 import { Alert, AlertDescription, AlertTitle } from '@brumaombra/ui-vintage/alert';
 import { Button } from '@brumaombra/ui-vintage/button';
 import { EmptyStateCard } from '@brumaombra/ui-vintage/empty-state-card';
+import { ListGroup } from '@brumaombra/ui-vintage/list';
 import { PageHeader } from '@brumaombra/ui-vintage/page-header';
 import { ResponsiveDialog } from '@brumaombra/ui-vintage/responsive-dialog';
-import { SectionTitle } from '@brumaombra/ui-vintage/section-title';
 import { buildDurationOptions, clampMinutes, DEFAULT_MINUTES, getHomeState, getNvrStatusDetails, hasNvrProblem, pickDefaultMinutes } from '~/composables/useQuietMode.js';
 import { cancelQuietMode, retryRestore, startQuietMode, useCountdown, useStatusPolling } from '~/composables/useSwitchState.js';
 import { useGlobalStore } from '~/composables/stores/useGlobalStore.js';
@@ -138,7 +139,7 @@ definePageMeta({
                 </Button>
 
                 <!-- Alerts on: pick the duration and start -->
-                <div v-else class="space-y-4">
+                <div v-else class="space-y-6">
                     <!-- The NVR has a problem the user can fix -->
                     <Alert v-if="nvrProblem" :color="nvrProblem.tone" data-testid="nvr-problem">
                         <HugeiconsIcon :icon="Alert02Icon" />
@@ -149,10 +150,19 @@ definePageMeta({
                         </AlertDescription>
                     </Alert>
 
-                    <section>
-                        <SectionTitle :title="t('pages.home.duration.title')" :description="t('pages.home.duration.description')" />
-                        <DurationPicker :model-value="effectiveMinutes" :max-minutes="status.maxMinutes" :disabled="isBusy" @update:model-value="handleDurationChange" />
-                    </section>
+                    <!-- Duration: the choices are chips in one row of the group, so the main flow stays one tap -->
+                    <ListGroup :title="t('pages.home.duration.title')" :hint="t('pages.home.duration.description')">
+                        <li data-slot="list-row" class="px-4 py-3 md:px-5">
+                            <!-- Icon and label -->
+                            <div class="flex min-h-7 items-center gap-2 md:gap-3">
+                                <HugeiconsIcon :icon="Timer01Icon" class="size-4 shrink-0 text-muted-foreground" />
+                                <span class="min-w-0 flex-1 text-[0.8125rem] font-semibold text-foreground md:text-sm">{{ t('pages.home.duration.label') }}</span>
+                            </div>
+
+                            <!-- Durations -->
+                            <DurationPicker class="mt-2" :model-value="effectiveMinutes" :max-minutes="status.maxMinutes" :disabled="isBusy" @update:model-value="handleDurationChange" />
+                        </li>
+                    </ListGroup>
 
                     <Button variant="primary" class="w-full" size="lg" :disabled="isBusy" :loading="isBusy" data-testid="start-button" @click="handleStartPress">
                         <HugeiconsIcon :icon="NotificationOff01Icon" class="size-4" />

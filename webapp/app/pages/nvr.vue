@@ -7,7 +7,6 @@ import { Button } from '@brumaombra/ui-vintage/button';
 import { EmptyStateCard } from '@brumaombra/ui-vintage/empty-state-card';
 import { LoadingStateCard } from '@brumaombra/ui-vintage/loading-state-card';
 import { PageHeader } from '@brumaombra/ui-vintage/page-header';
-import { SectionTitle } from '@brumaombra/ui-vintage/section-title';
 import { loadNvr, useStatusPolling } from '~/composables/useSwitchState.js';
 import { useGlobalStore } from '~/composables/stores/useGlobalStore.js';
 import StatusGate from '~/components/device/StatusGate.vue';
@@ -64,16 +63,10 @@ definePageMeta({
 
             <div v-else class="space-y-6">
                 <!-- Address, username and password -->
-                <section>
-                    <SectionTitle :title="t('pages.nvr.loginTitle')" :description="t('pages.nvr.loginDescription')" />
-                    <NvrForm />
-                </section>
+                <NvrForm />
 
                 <!-- Connection test -->
-                <section>
-                    <SectionTitle :title="t('pages.nvr.connectionTitle')" :description="t('pages.nvr.connectionDescription')" />
-                    <NvrConnection />
-                </section>
+                <NvrConnection />
             </div>
         </StatusGate>
     </div>
