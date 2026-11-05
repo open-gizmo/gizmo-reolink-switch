@@ -112,31 +112,38 @@
             "status": {
                 "checking": {
                     "title": "Verifica dell'NVR...",
-                    "description": "Il dispositivo sta accedendo e contando le telecamere online."
+                    "description": "Il dispositivo sta accedendo e contando le telecamere online.",
+                    "badge": "Verifica"
                 },
                 "notConfigured": {
                     "title": "Non ancora configurato",
-                    "description": "Salva indirizzo, nome utente e password per collegarti all'NVR."
+                    "description": "Salva indirizzo, nome utente e password per collegarti all'NVR.",
+                    "badge": "Da configurare"
                 },
                 "unknown": {
                     "title": "Non ancora verificato",
-                    "description": "Premi Prova la connessione per controllare che il dispositivo raggiunga l'NVR."
+                    "description": "Premi Prova la connessione per controllare che il dispositivo raggiunga l'NVR.",
+                    "badge": "Da verificare"
                 },
                 "connected": {
                     "title": "Connesso: {count} telecamera online | Connesso: {count} telecamere online",
-                    "description": "Il dispositivo ha effettuato l'accesso all'NVR e può silenziarlo."
+                    "description": "Il dispositivo ha effettuato l'accesso all'NVR e può silenziarlo.",
+                    "badge": "Online"
                 },
                 "unreachable": {
                     "title": "L'NVR non risponde",
-                    "description": "Controlla l'indirizzo e che l'NVR sia acceso e sulla stessa rete del dispositivo."
+                    "description": "Controlla l'indirizzo e che l'NVR sia acceso e sulla stessa rete del dispositivo.",
+                    "badge": "Offline"
                 },
                 "loginRefused": {
                     "title": "L'NVR ha rifiutato l'accesso",
-                    "description": "Controlla il nome utente e la password."
+                    "description": "Controlla il nome utente e la password.",
+                    "badge": "Rifiutato"
                 },
                 "loginPaused": {
                     "title": "Accesso in pausa",
-                    "description": "L'NVR blocca l'account dopo alcune password sbagliate, quindi il dispositivo aspetta 10 minuti prima di riprovare. Controlla nome utente e password e salvali di nuovo, oppure aspetta 10 minuti."
+                    "description": "L'NVR blocca l'account dopo alcune password sbagliate, quindi il dispositivo aspetta 10 minuti prima di riprovare. Controlla nome utente e password e salvali di nuovo, oppure aspetta 10 minuti.",
+                    "badge": "In pausa"
                 }
             }
         },

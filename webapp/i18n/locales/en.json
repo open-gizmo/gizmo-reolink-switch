@@ -112,31 +112,38 @@
             "status": {
                 "checking": {
                     "title": "Checking the NVR...",
-                    "description": "The device is logging in and counting the online cameras."
+                    "description": "The device is logging in and counting the online cameras.",
+                    "badge": "Checking"
                 },
                 "notConfigured": {
                     "title": "Not set up yet",
-                    "description": "Save the address, the username and the password to connect to the NVR."
+                    "description": "Save the address, the username and the password to connect to the NVR.",
+                    "badge": "Not set up"
                 },
                 "unknown": {
                     "title": "Not checked yet",
-                    "description": "Press Test connection to check that the device can reach the NVR."
+                    "description": "Press Test connection to check that the device can reach the NVR.",
+                    "badge": "Unchecked"
                 },
                 "connected": {
                     "title": "Connected: {count} camera online | Connected: {count} cameras online",
-                    "description": "The device logged in to the NVR and can mute it."
+                    "description": "The device logged in to the NVR and can mute it.",
+                    "badge": "Online"
                 },
                 "unreachable": {
                     "title": "The NVR doesn't answer",
-                    "description": "Check the address, and that the NVR is on and on the same network as the switch."
+                    "description": "Check the address, and that the NVR is on and on the same network as the switch.",
+                    "badge": "Offline"
                 },
                 "loginRefused": {
                     "title": "The NVR refused the login",
-                    "description": "Check the username and the password."
+                    "description": "Check the username and the password.",
+                    "badge": "Refused"
                 },
                 "loginPaused": {
                     "title": "Login paused",
-                    "description": "The NVR locks the account after a few wrong passwords, so the device waits 10 minutes before it tries again. Check the username and the password and save them again, or just wait 10 minutes."
+                    "description": "The NVR locks the account after a few wrong passwords, so the device waits 10 minutes before it tries again. Check the username and the password and save them again, or just wait 10 minutes.",
+                    "badge": "Paused"
                 }
             }
         },

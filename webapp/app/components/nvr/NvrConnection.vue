@@ -6,6 +6,7 @@ import Clock01Icon from '@hugeicons/core-free-icons/Clock01Icon';
 import HelpCircleIcon from '@hugeicons/core-free-icons/HelpCircleIcon';
 import PlugSocketIcon from '@hugeicons/core-free-icons/PlugSocketIcon';
 import { HugeiconsIcon } from '@hugeicons/vue';
+import { Badge } from '@brumaombra/ui-vintage/badge';
 import { Button } from '@brumaombra/ui-vintage/button';
 import { ListGroup, ListRow } from '@brumaombra/ui-vintage/list';
 import { getNvrStatusDetails } from '~/composables/useQuietMode.js';
@@ -24,6 +25,10 @@ const isBusy = computed(() => status.value.busy || isSending.value);
 // Icon of each outcome
 const STATUS_ICONS = { connected: CheckmarkCircle02Icon, unreachable: Alert02Icon, loginRefused: Alert02Icon, loginPaused: Clock01Icon, unknown: HelpCircleIcon, notConfigured: HelpCircleIcon };
 const icon = computed(() => STATUS_ICONS[details.value.key]);
+
+// Badge color of each outcome, so the state reads at a glance
+const BADGE_COLORS = { connected: 'green', unreachable: 'yellow', loginRefused: 'red', loginPaused: 'yellow', unknown: 'gray', notConfigured: 'gray' };
+const badgeColor = computed(() => BADGE_COLORS[details.value.key]);
 
 // Number of online cameras for the plural texts
 const cameraCount = computed(() => status.value.cameraCount || 0);
@@ -46,10 +51,18 @@ const handleTestPress = async () => {
         <!-- Whether the device can reach the NVR -->
         <ListGroup :title="t('pages.nvr.connectionTitle')" :hint="t('pages.nvr.connectionDescription')">
             <!-- The device is logging in -->
-            <ListRow v-if="isBusy" :label="t('pages.nvr.status.checking.title')" :description="t('pages.nvr.status.checking.description')" :icon="PlugSocketIcon" data-testid="nvr-checking" />
+            <ListRow v-if="isBusy" :label="t('pages.nvr.status.checking.title')" :description="t('pages.nvr.status.checking.description')" :icon="PlugSocketIcon" data-testid="nvr-checking">
+                <template #trailing>
+                    <Badge :text="t('pages.nvr.status.checking.badge')" color="blue" dot pulse />
+                </template>
+            </ListRow>
 
             <!-- Outcome of the last test -->
-            <ListRow v-else :label="t(`pages.nvr.status.${details.key}.title`, { count: cameraCount }, cameraCount)" :description="t(`pages.nvr.status.${details.key}.description`)" :icon="icon" :data-testid="`nvr-status-${status.nvrStatus}`" />
+            <ListRow v-else :label="t(`pages.nvr.status.${details.key}.title`, { count: cameraCount }, cameraCount)" :description="t(`pages.nvr.status.${details.key}.description`)" :icon="icon" :data-testid="`nvr-status-${status.nvrStatus}`">
+                <template #trailing>
+                    <Badge :text="t(`pages.nvr.status.${details.key}.badge`)" :color="badgeColor" dot data-testid="nvr-badge" />
+                </template>
+            </ListRow>
         </ListGroup>
 
         <!-- Test button -->
