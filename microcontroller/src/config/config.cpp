@@ -19,10 +19,11 @@ namespace config {
 	const char ASSET_PATH_PREFIX[] = "/_nuxt/"; // Files of the web app, never redirected by the hotspot
 
 	// Pin assignments
-	const uint8_t BUZZER_PIN = 12;
-	const uint8_t BUTTON_PIN = 13;
-	const uint8_t DISPLAY_SDA_PIN = 26;
-	const uint8_t DISPLAY_SCL_PIN = 25;
+	// XIAO ESP32-S3 pads (GPIO numbers, so the native tests build too): the LCD on the default I2C pads, the button and the buzzer next to them, clear of D2 (GPIO3, a boot strapping pin) and of the serial pads D6 and D7
+	const uint8_t BUZZER_PIN = 2; // D1
+	const uint8_t BUTTON_PIN = 1; // D0
+	const uint8_t DISPLAY_SDA_PIN = 5; // D4
+	const uint8_t DISPLAY_SCL_PIN = 6; // D5
 
 	// Timing constants
 	const uint32_t BUTTON_DEBOUNCE_DELAY_MS = 40;

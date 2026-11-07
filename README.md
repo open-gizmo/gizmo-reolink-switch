@@ -106,7 +106,7 @@ Gizmo Reolink Switch is built around four cooperating parts:
 
 ### 📋 Requirements
 
-- ESP32 development board.
+- Seeed Studio XIAO ESP32-S3, with its FPC antenna (PlatformIO env `xiao_esp32s3`).
 - Reolink NVR reachable on the same network as the ESP32.
 - 1 push button.
 - 1 buzzer.
@@ -164,10 +164,15 @@ Press the button to choose the time and hold it to start, or do the same from th
 
 Current pin assignments from the firmware configuration:
 
-- Buzzer: `GPIO12`
-- Button: `GPIO13`
-- LCD SDA: `GPIO26`
-- LCD SCL: `GPIO25`
+| Part | XIAO ESP32-S3 pad |
+| --- | --- |
+| LCD SDA | `D4` (GPIO5) |
+| LCD SCL | `D5` (GPIO6) |
+| Button (to GND) | `D0` (GPIO1) |
+| Buzzer | `D1` (GPIO2) |
+| LCD and buzzer power | `5V`, `GND` |
+
+The XIAO has no antenna on the board: connect its FPC antenna to the U.FL connector, or it won't join the Wi-Fi.
 
 ### Display
 
@@ -271,7 +276,7 @@ The dashboard lives in `webapp/`. It's a Nuxt 4 app on the shared gizmo-common w
 Nothing needs to be compiled in: the Wi-Fi and the NVR login are set from the phone and saved on the board. The optional secrets file only turns on the serial logs while developing:
 
 ```ini
-[env:esp32dev]
+[env:xiao_esp32s3]
 build_flags =
 	-D PIO_DEV_MODE=1
 ```
