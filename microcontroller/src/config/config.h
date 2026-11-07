@@ -4,9 +4,6 @@
 #include <Arduino.h>
 
 namespace config {
-	// Env configuration flags
-	extern const bool DEVMODE;
-
 	// Project details shown in the web app
 	extern const char PROJECT_NAME[];
 	extern const char FIRMWARE_VERSION[];

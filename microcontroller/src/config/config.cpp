@@ -1,17 +1,10 @@
 #include "config.h"
 
-#ifndef PIO_DEV_MODE
-#define PIO_DEV_MODE 0
-#endif
-
 #ifndef PIO_FIRMWARE_VERSION
 #define PIO_FIRMWARE_VERSION "dev"
 #endif
 
 namespace config {
-	// Env configuration flags
-	const bool DEVMODE = PIO_DEV_MODE != 0;
-
 	// Project details shown in the web app (the release build sets the version)
 	const char PROJECT_NAME[] = "Gizmo Reolink Switch";
 	const char FIRMWARE_VERSION[] = PIO_FIRMWARE_VERSION;
