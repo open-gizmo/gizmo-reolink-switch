@@ -147,7 +147,7 @@ For the CLI, from `microcontroller/`:
 pio run --target upload
 ```
 
-No secrets file is needed. Create one from [platformio_secrets.example.ini](microcontroller/platformio_secrets.example.ini) only if you want the serial logs while developing.
+No secrets file is needed. Create one from [platformio_secrets.example.ini](microcontroller/platformio_secrets.example.ini), and set `PIO_DEV_MODE=1` in it, only if you want the serial logs while developing (the example keeps them off, as in the released firmware).
 
 4. **Connect the switch to your Wi-Fi.**
 
