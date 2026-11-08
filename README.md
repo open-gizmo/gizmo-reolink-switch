@@ -7,6 +7,10 @@
 Gizmo Reolink Switch is a small ESP32 project that lets you temporarily mute Reolink NVR notifications and recording so you can leave home without triggering your own cameras. It combines a one-button interface, buzzer feedback, a 16x2 I2C LCD, a web dashboard for your phone, and direct Reolink API control. Everything is set up from the phone: no code, no credentials in the firmware.
 
 <p>
+  <a href="https://opengizmo.dev/projects/gizmo-reolink-switch"><img alt="An ESP32 controls a Reolink NVR with a button, LCD and buzzer." src="docs/cover.webp" width="800"></a>
+</p>
+
+<p>
   <img alt="ESP32" src="https://img.shields.io/badge/esp32-ESP32-E7352C?logo=espressif&logoColor=white">
   <img alt="PlatformIO" src="https://img.shields.io/badge/platformio-PlatformIO-FF6B35?logo=platformio&logoColor=white">
   <img alt="Arduino" src="https://img.shields.io/badge/framework-Arduino-00979D?logo=arduino&logoColor=white">
