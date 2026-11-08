@@ -1,3 +1,5 @@
+import { readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { IncomingMessage, ServerResponse } from 'node:http';
 import { Socket } from 'node:net';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -12,12 +14,11 @@ vi.hoisted(() => {
 
 // Load the handlers of the mock device API
 const { default: getStatus } = await import('../../server/api/status/index.get.js');
-const { default: postQuietMode } = await import('../../server/api/quiet-mode/index.post.js');
 const { default: getNvr } = await import('../../server/api/nvr/index.get.js');
 const { default: postNvr } = await import('../../server/api/nvr/index.post.js');
 const { default: postNvrTest } = await import('../../server/api/nvr-test/index.post.js');
 const { default: nameMockDevice } = await import('../../server/plugins/gizmo-mock.js');
-const { BUSY_DURATION_MS, LOGIN_PAUSE_MS, MOCK_CAMERA_COUNT, getSwitchMockState, readHost } = await import('../../server/utils/switch-mock-state.js');
+const { BUSY_DURATION_MS, LOGIN_PAUSE_MS, MOCK_CAMERA_COUNT, MOCK_RUNNING_MINUTES, getSwitchMockState, readHost } = await import('../../server/utils/switch-mock-state.js');
 const { buildDevicePayload, getGizmoMockState, resetGizmoMockState } = await import('gizmo-common/web/server/utils/gizmo-mock.js');
 
 // Build a real h3 request event, with a JSON body when one is given (a string is sent as it is)
@@ -34,8 +35,7 @@ const callHandler = async (handler, event = buildEvent()) => {
     return { statusCode: event.node.res.statusCode, response, event };
 };
 
-// Send a quiet mode command, a login, a test or read the status and the login
-const sendCommand = body => callHandler(postQuietMode, buildEvent(body));
+// Send a login, a test or read the status and the login
 const sendNvr = body => callHandler(postNvr, buildEvent(body));
 const sendTest = () => callHandler(postNvrTest);
 const readStatus = async () => (await callHandler(getStatus)).response.data;
@@ -51,12 +51,21 @@ const setNvr = ({ host = '192.168.1.10', username = 'admin', password = 'secret'
     state.nvrStatus = host && username && password ? 'connected' : 'not_configured';
 };
 
+// Put the device in a state with a timer running for some minutes (only the button of the device starts it)
+const startTimer = minutes => {
+    const state = getSwitchMockState();
+    state.isTimerRunning = true;
+    state.selectedSeconds = minutes * 60;
+    state.timerEndsAt = Date.now() + (minutes * 60 * 1000);
+};
+
 // Start every test from the demo device the dev server boots with, at a fixed time
 beforeEach(() => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date('2026-11-04T10:00:00Z'));
     resetGizmoMockState();
     delete process.env.MOCK_NVR_EMPTY;
+    delete process.env.MOCK_STATE;
 });
 
 // Leave the real clock to the other tests
@@ -72,19 +81,19 @@ describe('mock device responses', () => {
         expect(statusCode).toBe(200);
         expect(response.errorId).toBeNull();
         expect(response.errorMessage).toBeNull();
-        expect(response.data.maxMinutes).toBe(60);
+        expect(response.data).not.toHaveProperty('maxMinutes');
     });
 
     // An error is the firmware body with its status code, never an h3 error
     it('answers an error as the firmware body with its status code', async () => {
-        const { statusCode, response } = await sendCommand({ action: 'start', minutes: 61 });
+        const { statusCode, response } = await sendNvr({ host: 'my nvr', username: 'admin', password: 'x' });
         expect(statusCode).toBe(400);
-        expect(response).toEqual({ errorId: 'invalid_quiet_mode_field', errorMessage: 'minutes', data: null });
+        expect(response).toEqual({ errorId: 'invalid_nvr_field', errorMessage: 'host', data: null });
     });
 
     // Bodies are checked like gizmo-common reads them
     it('refuses invalid, non-object and oversized bodies', async () => {
-        const invalidJson = await sendCommand('{nope');
+        const invalidJson = await sendNvr('{nope');
         const arrayBody = await sendNvr([1]);
         const largeBody = await sendNvr({ host: 'a'.repeat(2100) });
         expect([invalidJson.statusCode, invalidJson.response.errorMessage]).toEqual([400, 'Invalid JSON']);
@@ -108,7 +117,6 @@ describe('mock status', () => {
             timerRunning: false,
             remainingSeconds: 0,
             selectedSeconds: 0,
-            maxMinutes: 60,
             alertsStillOff: false,
             busy: false,
             nvrStatus: 'connected',
@@ -125,66 +133,17 @@ describe('mock status', () => {
     });
 });
 
-// POST /api/quiet-mode: the validation of the firmware
-describe('mock quiet mode validation', () => {
-    // Every wrong body names its first wrong field
-    it.each([
-        [{}, 'action'],
-        [{ action: 5 }, 'action'],
-        [{ action: null }, 'action'],
-        [{ action: 'pause' }, 'action'],
-        [{ action: 'START' }, 'action'],
-        [{ action: 'start' }, 'minutes'],
-        [{ action: 'start', minutes: 0 }, 'minutes'],
-        [{ action: 'start', minutes: -5 }, 'minutes'],
-        [{ action: 'start', minutes: 61 }, 'minutes'],
-        [{ action: 'start', minutes: 1.5 }, 'minutes'],
-        [{ action: 'start', minutes: '5' }, 'minutes'],
-        [{ action: 'start', minutes: null }, 'minutes'],
-        [{ action: 'start', minutes: true }, 'minutes']
-    ])('refuses %j (field %s)', async (body, field) => {
-        const { statusCode, response } = await sendCommand(body);
-        expect(statusCode).toBe(400);
-        expect(response).toEqual({ errorId: 'invalid_quiet_mode_field', errorMessage: field, data: null });
+// The quiet mode is controlled only with the button of the device: there is no route for the web app
+describe('mock quiet mode', () => {
+    // The dashboard can't start, cancel or retry it
+    it('has no quiet mode route', () => {
+        const files = readdirSync(join(process.cwd(), 'server', 'api'));
+        expect(files.sort()).toEqual(['nvr', 'nvr-test', 'status']);
     });
 
-    // The edges of the range are valid
-    it.each([1, 5, 60])('accepts %i minutes', async minutes => {
-        const { statusCode } = await sendCommand({ action: 'start', minutes });
-        expect(statusCode).toBe(202);
-    });
-
-    // The cancel and retry commands take no other field
-    it('ignores the fields it does not know', async () => {
-        const { statusCode } = await sendCommand({ action: 'start', minutes: 5, color: 'red', seconds: 9999 });
-        expect(statusCode).toBe(202);
-    });
-
-    // The firmware reads the body before it looks at what the device is doing
-    it('checks the body before the state of the device', async () => {
-        await sendCommand({ action: 'start', minutes: 5 });
-        const { statusCode, response } = await sendCommand({ action: 'start', minutes: 99 });
-        expect([statusCode, response.errorId]).toEqual([400, 'invalid_quiet_mode_field']);
-    });
-});
-
-// POST /api/quiet-mode: the checks against what the device is doing, in the order of the firmware
-describe('mock quiet mode commands', () => {
-    // A command is taken, and the device is busy until the main loop has run it
-    it('answers 202 with the status, busy until the command has run', async () => {
-        const { statusCode, response } = await sendCommand({ action: 'start', minutes: 5 });
-        expect(statusCode).toBe(202);
-        expect(response.errorId).toBeNull();
-        expect(response.data).toMatchObject({ busy: true, timerRunning: false });
-        expect((await readStatus()).busy).toBe(true);
-        finishBusyTime();
-        expect(await readStatus()).toMatchObject({ busy: false, timerRunning: true, selectedSeconds: 300 });
-    });
-
-    // The countdown goes down with the time
+    // The timer of the device runs down and turns the alerts back on
     it('counts the timer down and turns the alerts on when it ends', async () => {
-        await sendCommand({ action: 'start', minutes: 2 });
-        finishBusyTime();
+        startTimer(2);
         expect((await readStatus()).remainingSeconds).toBeLessThanOrEqual(120);
         vi.advanceTimersByTime(60 * 1000);
         const halfway = await readStatus();
@@ -194,97 +153,23 @@ describe('mock quiet mode commands', () => {
         expect(await readStatus()).toMatchObject({ timerRunning: false, remainingSeconds: 0, alertsStillOff: false });
     });
 
-    // Another command while the device works used to be accepted
-    it('refuses a second command while the device is busy', async () => {
-        await sendCommand({ action: 'start', minutes: 5 });
-        const { statusCode, response } = await sendCommand({ action: 'cancel' });
-        expect([statusCode, response.errorId, response.errorMessage]).toEqual([409, 'device_busy', 'device_busy']);
-    });
-
-    // The busy check comes before the others: a cancel while busy is not "not running"
-    it('says busy before anything else', async () => {
-        await sendCommand({ action: 'start', minutes: 5 });
-        const retry = await sendCommand({ action: 'retry' });
-        expect(retry.response.errorId).toBe('device_busy');
-    });
-
-    // The timer runs once
-    it('refuses to start while the timer runs', async () => {
-        await sendCommand({ action: 'start', minutes: 5 });
-        finishBusyTime();
-        const { statusCode, response } = await sendCommand({ action: 'start', minutes: 5 });
-        expect([statusCode, response.errorId]).toEqual([409, 'timer_running']);
-    });
-
-    // The timer is checked before the NVR
-    it('says the timer runs before it says the NVR is missing', async () => {
-        await sendCommand({ action: 'start', minutes: 5 });
-        finishBusyTime();
-        setNvr({ host: '' });
-        const { response } = await sendCommand({ action: 'start', minutes: 5 });
-        expect(response.errorId).toBe('timer_running');
-    });
-
-    // Nothing to mute without an NVR
-    it('refuses to start without an NVR login', async () => {
-        setNvr({ host: '', username: '', password: '' });
-        const { statusCode, response } = await sendCommand({ action: 'start', minutes: 5 });
-        expect([statusCode, response.errorId, response.errorMessage]).toEqual([409, 'nvr_not_configured', 'nvr_not_configured']);
-    });
-
-    // Nothing to cancel
-    it('refuses to cancel when no timer runs', async () => {
-        const { statusCode, response } = await sendCommand({ action: 'cancel' });
-        expect([statusCode, response.errorId]).toEqual([409, 'timer_not_running']);
-    });
-
-    // Nothing to retry
-    it('refuses to retry when the alerts are on', async () => {
-        const { statusCode, response } = await sendCommand({ action: 'retry' });
-        expect([statusCode, response.errorId]).toEqual([409, 'nothing_to_restore']);
-    });
-
-    // Cancel turns the alerts back on
-    it('cancels the timer', async () => {
-        await sendCommand({ action: 'start', minutes: 5 });
-        finishBusyTime();
-        const { statusCode } = await sendCommand({ action: 'cancel' });
-        expect(statusCode).toBe(202);
-        finishBusyTime();
-        expect(await readStatus()).toMatchObject({ timerRunning: false, alertsStillOff: false, busy: false });
-    });
-
-    // An NVR that doesn't answer can't be muted: no timer starts
-    it('does not start the timer when the NVR can not be reached', async () => {
-        setNvr({ host: '192.168.1.99' });
-        await sendCommand({ action: 'start', minutes: 5 });
-        finishBusyTime();
-        expect(await readStatus()).toMatchObject({ timerRunning: false, nvrStatus: 'unreachable' });
-    });
-
-    // The alerts that can't be restored stay off until a retry works (an address ending in .98 shows the warning)
-    it('keeps the alerts off when the restore fails, until a retry works', async () => {
-        setNvr({ host: '192.168.1.98' });
-        await sendCommand({ action: 'start', minutes: 5 });
-        finishBusyTime();
-        await sendCommand({ action: 'cancel' });
-        finishBusyTime();
-        expect(await readStatus()).toMatchObject({ timerRunning: false, alertsStillOff: true });
-
-        // The retry is allowed now, and works
-        const { statusCode } = await sendCommand({ action: 'retry' });
-        expect(statusCode).toBe(202);
-        finishBusyTime();
-        expect(await readStatus()).toMatchObject({ alertsStillOff: false });
-    });
-
-    // The alerts that fail to come back when the timer ends are still off
+    // The alerts that fail to come back when the timer ends are still off (an address ending in .98)
     it('keeps the alerts off when the restore fails at the end of the timer', async () => {
         setNvr({ host: '10.0.0.98' });
-        await sendCommand({ action: 'start', minutes: 1 });
-        finishBusyTime();
+        startTimer(1);
         vi.advanceTimersByTime(61 * 1000);
         expect(await readStatus()).toMatchObject({ timerRunning: false, alertsStillOff: true });
+    });
+
+    // The dev server can start with a running timer or with the alerts still off, to look at those pages
+    it.each([
+        ['running', { timerRunning: true, selectedSeconds: MOCK_RUNNING_MINUTES * 60 }],
+        ['alerts_off', { timerRunning: false, alertsStillOff: true }]
+    ])('starts in the state %s when MOCK_STATE says so', async (name, expected) => {
+        process.env.MOCK_STATE = name;
+        resetGizmoMockState();
+        expect(await readStatus()).toMatchObject(expected);
+        delete process.env.MOCK_STATE;
     });
 });
 
@@ -355,12 +240,40 @@ describe('mock NVR validation', () => {
         expect(readHost('///')).toBeNull();
     });
 
-    // An empty or missing password keeps the saved one
+    // An empty or missing password keeps the saved one, while the address and the username stay the same
     it.each([[''], [undefined], [null]])('keeps the saved password when it is %j', async password => {
-        const { statusCode, response } = await sendNvr({ host: '192.168.1.11', username: 'root', password });
+        const { statusCode, response } = await sendNvr({ host: '192.168.1.10', username: 'admin', password });
+        expect(statusCode).toBe(200);
+        expect(response.data).toEqual({ host: '192.168.1.10', username: 'admin', hasPassword: true, configured: true });
+        expect(getSwitchMockState().nvr.password).toBe('secret');
+    });
+
+    // The scheme and the slashes of the address do not make it a different NVR
+    it('keeps the saved password when the address only differs by the scheme', async () => {
+        const { statusCode } = await sendNvr({ host: 'http://192.168.1.10/', username: 'admin', password: '' });
+        expect(statusCode).toBe(200);
+        expect(getSwitchMockState().nvr.password).toBe('secret');
+    });
+
+    // The saved password only works for the NVR it was entered for: a new address or username needs a new one, and nothing is saved without it
+    it.each([
+        ['address', { host: '192.168.1.11', username: 'admin' }],
+        ['username', { host: '192.168.1.10', username: 'root' }]
+    ])('refuses a new %s without a new password', async (name, login) => {
+        for (const password of ['', undefined, null]) {
+            const { statusCode, response } = await sendNvr({ ...login, password });
+            expect(statusCode).toBe(400);
+            expect(response).toEqual({ errorId: 'invalid_nvr_field', errorMessage: 'password', data: null });
+        }
+        expect(await readNvr()).toMatchObject({ host: '192.168.1.10', username: 'admin' });
+    });
+
+    // A new password lets the address and the username change
+    it('saves a new address and username with a new password', async () => {
+        const { statusCode, response } = await sendNvr({ host: '192.168.1.11', username: 'root', password: 'fresh' });
         expect(statusCode).toBe(200);
         expect(response.data).toEqual({ host: '192.168.1.11', username: 'root', hasPassword: true, configured: true });
-        expect(getSwitchMockState().nvr.password).toBe('secret');
+        expect(getSwitchMockState().nvr.password).toBe('fresh');
     });
 
     // A new password replaces it
@@ -385,8 +298,7 @@ describe('mock NVR validation', () => {
 
     // The muted cameras were muted on the saved NVR: the login can't change, whatever the body says
     it('refuses a change while the timer runs, before it checks the fields', async () => {
-        await sendCommand({ action: 'start', minutes: 5 });
-        finishBusyTime();
+        startTimer(5);
         const { statusCode, response } = await sendNvr({ host: 'not valid', username: '' });
         expect([statusCode, response.errorId, response.errorMessage]).toEqual([409, 'nvr_change_while_muted', 'nvr_change_while_muted']);
         expect(await readNvr()).toMatchObject({ host: '192.168.1.10' });
@@ -394,11 +306,7 @@ describe('mock NVR validation', () => {
 
     // The alerts still off need the saved NVR too
     it('refuses a change while the alerts are still off', async () => {
-        setNvr({ host: '192.168.1.98' });
-        await sendCommand({ action: 'start', minutes: 5 });
-        finishBusyTime();
-        await sendCommand({ action: 'cancel' });
-        finishBusyTime();
+        getSwitchMockState().hasPendingRestore = true;
         const { response } = await sendNvr({ host: '192.168.1.10', username: 'admin', password: 'x' });
         expect(response.errorId).toBe('nvr_change_while_muted');
     });
@@ -477,7 +385,7 @@ describe('mock NVR test', () => {
 
     // The missing login is checked before the busy state
     it('says the NVR is missing before it says the device is busy', async () => {
-        await sendCommand({ action: 'start', minutes: 5 });
+        await sendTest();
         setNvr({ host: '', username: '', password: '' });
         const { response } = await sendTest();
         expect(response.errorId).toBe('nvr_not_configured');
@@ -492,8 +400,7 @@ describe('mock NVR test', () => {
 
     // The test is allowed while the timer runs (it only reads)
     it('tests the connection while the timer runs', async () => {
-        await sendCommand({ action: 'start', minutes: 5 });
-        finishBusyTime();
+        startTimer(5);
         const { statusCode } = await sendTest();
         expect(statusCode).toBe(202);
     });

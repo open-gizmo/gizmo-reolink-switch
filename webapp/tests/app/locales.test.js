@@ -101,7 +101,7 @@ describe('locales', () => {
                 errorIds.add(match[1]);
             }
 
-            // The checks of the quiet mode return the error ID, which the route sends (sendErrorResponse(request, 409, errorId, errorId))
+            // The checks of the routes return the error ID, which the route sends (sendErrorResponse(request, 409, errorId, errorId))
             if (file.includes('endpoints')) {
                 for (const returned of source.matchAll(/return\b[^;]*;/g)) {
                     for (const match of returned[0].matchAll(/"([a-z_]+)"/g)) errorIds.add(match[1]);
@@ -110,7 +110,7 @@ describe('locales', () => {
         }
 
         // Make sure the search found the errors of this firmware, so a change of the C++ code can't empty it
-        for (const errorId of ['invalid_quiet_mode_field', 'device_busy', 'timer_running', 'timer_not_running', 'nothing_to_restore', 'nvr_not_configured', 'invalid_nvr_field', 'nvr_change_while_muted', 'nvr_save_failed']) {
+        for (const errorId of ['device_busy', 'nvr_not_configured', 'invalid_nvr_field', 'nvr_change_while_muted', 'nvr_save_failed']) {
             expect(errorIds.has(errorId), errorId).toBe(true);
         }
         expect([...errorIds].filter(errorId => !(`api.backendErrors.${errorId}` in englishTexts) && !(`gizmo.api.backendErrors.${errorId}` in layerTexts))).toEqual([]);

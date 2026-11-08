@@ -39,19 +39,36 @@ void test_complete_login_is_saved() {
 	TEST_ASSERT_EQUAL_STRING("newpass", settings.password);
 }
 
-// An empty or missing password keeps the saved one (the web app never gets it back)
+// An empty or missing password keeps the saved one, for the same address and username (the web app never gets it back)
 void test_empty_password_keeps_the_saved_one() {
-	TEST_ASSERT_NULL(applyJson("{\"host\":\"192.168.1.20\",\"username\":\"admin\",\"password\":\"\"}"));
+	TEST_ASSERT_NULL(applyJson("{\"host\":\"192.168.1.10\",\"username\":\"admin\",\"password\":\"\"}"));
 	TEST_ASSERT_EQUAL_STRING("secret", settings.password);
-	TEST_ASSERT_NULL(applyJson("{\"host\":\"192.168.1.20\",\"username\":\"admin\"}"));
+	TEST_ASSERT_NULL(applyJson("{\"host\":\"192.168.1.10\",\"username\":\"admin\"}"));
+	TEST_ASSERT_EQUAL_STRING("secret", settings.password);
+}
+
+// A new address needs the password again: the saved one is never sent to another address
+void test_new_address_needs_the_password_again() {
+	TEST_ASSERT_EQUAL_STRING("password", applyJson("{\"host\":\"203.0.113.7\",\"username\":\"admin\"}"));
+	TEST_ASSERT_EQUAL_STRING("192.168.1.10", settings.host);
+	TEST_ASSERT_EQUAL_STRING("secret", settings.password);
+	TEST_ASSERT_NULL(applyJson("{\"host\":\"203.0.113.7\",\"username\":\"admin\",\"password\":\"other\"}"));
+	TEST_ASSERT_EQUAL_STRING("other", settings.password);
+}
+
+// A new username needs the password again too
+void test_new_username_needs_the_password_again() {
+	TEST_ASSERT_EQUAL_STRING("password", applyJson("{\"host\":\"192.168.1.10\",\"username\":\"guard\",\"password\":\"\"}"));
+	TEST_ASSERT_EQUAL_STRING("admin", settings.username);
 	TEST_ASSERT_EQUAL_STRING("secret", settings.password);
 }
 
 // An address pasted from the browser loses its scheme and trailing slash
 void test_pasted_address_is_cleaned() {
-	TEST_ASSERT_NULL(applyJson("{\"host\":\"https://192.168.1.30/\",\"username\":\"admin\"}"));
-	TEST_ASSERT_EQUAL_STRING("192.168.1.30", settings.host);
-	TEST_ASSERT_NULL(applyJson("{\"host\":\"http://[fe80::1]:443//\",\"username\":\"admin\"}"));
+	TEST_ASSERT_NULL(applyJson("{\"host\":\"https://192.168.1.10/\",\"username\":\"admin\"}"));
+	TEST_ASSERT_EQUAL_STRING("192.168.1.10", settings.host);
+	TEST_ASSERT_EQUAL_STRING("secret", settings.password);
+	TEST_ASSERT_NULL(applyJson("{\"host\":\"http://[fe80::1]:443//\",\"username\":\"admin\",\"password\":\"secret\"}"));
 	TEST_ASSERT_EQUAL_STRING("[fe80::1]:443", settings.host);
 }
 
@@ -101,6 +118,8 @@ int main() {
 	UNITY_BEGIN();
 	RUN_TEST(test_complete_login_is_saved);
 	RUN_TEST(test_empty_password_keeps_the_saved_one);
+	RUN_TEST(test_new_address_needs_the_password_again);
+	RUN_TEST(test_new_username_needs_the_password_again);
 	RUN_TEST(test_pasted_address_is_cleaned);
 	RUN_TEST(test_invalid_address_is_refused);
 	RUN_TEST(test_invalid_username_is_refused);

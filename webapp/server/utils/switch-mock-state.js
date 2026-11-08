@@ -1,8 +1,7 @@
 // The Wi-Fi and device mock (its state, the responses and errors of the firmware) comes from the gizmo-common layer: this file adds the quiet mode timer and the NVR login of the switch
 import { EspMockError, byteLength, getGizmoMockState } from 'gizmo-common/web/server/utils/gizmo-mock.js';
 
-// Limits of the firmware (config.h, nvr_settings.h), counted in bytes like the C strings on the device
-export const MAX_MINUTES = 60;
+// Limits of the firmware (nvr_settings.h), counted in bytes like the C strings on the device
 export const NVR_HOST_MAX_BYTES = 64;
 export const NVR_USERNAME_MAX_BYTES = 32;
 export const NVR_PASSWORD_MAX_BYTES = 64;
@@ -12,6 +11,9 @@ export const BUSY_DURATION_MS = 1500;
 
 // Time the login stays paused after the NVR refused it (REOLINK_LOGIN_PAUSE_MS)
 export const LOGIN_PAUSE_MS = 10 * 60 * 1000;
+
+// Minutes of the timer the dev server starts with when MOCK_STATE is running
+export const MOCK_RUNNING_MINUTES = 10;
 
 // Cameras the mock NVR reports as online
 export const MOCK_CAMERA_COUNT = 4;
@@ -30,17 +32,18 @@ const buildInitialNvr = () => {
     return { host: '192.168.1.10', username: 'admin', password: 'secret' };
 };
 
-// State of the switch: the timer, the alerts, the command waiting for the main loop and the NVR login
+// State of the switch: the timer, the alerts, the command waiting for the main loop and the NVR login (the quiet mode starts only with the button of the device, so the dev server can start in a state to look at: MOCK_STATE=running or MOCK_STATE=alerts_off)
 const createSwitchState = () => {
     const nvr = buildInitialNvr();
+    const isRunning = process.env.MOCK_STATE === 'running';
     return {
         nvr,
         nvrStatus: nvr.host ? 'connected' : 'not_configured',
         cameraCount: nvr.host ? MOCK_CAMERA_COUNT : 0,
-        isTimerRunning: false,
-        timerEndsAt: 0,
-        selectedSeconds: 0,
-        hasPendingRestore: false,
+        isTimerRunning: isRunning,
+        timerEndsAt: isRunning ? Date.now() + (MOCK_RUNNING_MINUTES * 60 * 1000) : 0,
+        selectedSeconds: isRunning ? MOCK_RUNNING_MINUTES * 60 : 0,
+        hasPendingRestore: process.env.MOCK_STATE === 'alerts_off',
         restoreAttempts: 0,
         busyUntil: 0,
         pendingCommand: null,
@@ -72,7 +75,7 @@ export const readHost = value => {
 // Check a required text that fits its buffer (a string, not empty, up to a number of bytes)
 const isRequiredText = ({ value, maxLength }) => typeof value === 'string' && value.length > 0 && byteLength(value) <= maxLength;
 
-// Apply a login body like the firmware, all or nothing: returns the new login, or throws the 400 error with the name of the first wrong field (an empty or missing password keeps the saved one)
+// Apply a login body like the firmware, all or nothing: returns the new login, or throws the 400 error with the name of the first wrong field (an empty or missing password keeps the saved one only while the address and the username stay the same)
 export const applyNvrBody = ({ body, current }) => {
     // Read the address
     const host = typeof body.host === 'string' ? readHost(body.host) : null;
@@ -87,6 +90,10 @@ export const applyNvrBody = ({ body, current }) => {
         if (typeof body.password !== 'string' || byteLength(body.password) > NVR_PASSWORD_MAX_BYTES) throw new EspMockError(400, 'invalid_nvr_field', 'password');
         if (body.password !== '') password = body.password;
     }
+
+    // A saved password only works for the NVR it was entered for: a new address or username needs a new password
+    const isNewPassword = typeof body.password === 'string' && body.password !== '';
+    if (!isNewPassword && (host !== current.host || body.username !== current.username)) throw new EspMockError(400, 'invalid_nvr_field', 'password');
 
     // A login needs a password, saved or new
     if (!password) throw new EspMockError(400, 'invalid_nvr_field', 'password');
@@ -150,25 +157,11 @@ const restoreAlerts = state => {
     if (!state.hasPendingRestore) state.restoreAttempts = 0;
 };
 
-// Run the command the main loop took, at the moment it stops being busy
+// Run the command the main loop took (only the connection test comes from the web app), at the moment it stops being busy
 const runPendingCommand = ({ state, now }) => {
     const command = state.pendingCommand;
     state.pendingCommand = null;
-    if (command.type === 'start') {
-        // The NVR can't be reached, so the alerts are not muted and no timer starts
-        if (state.nvr.host.endsWith(UNREACHABLE_HOST_ENDING)) {
-            state.nvrStatus = 'unreachable';
-            return;
-        }
-        state.isTimerRunning = true;
-        state.selectedSeconds = command.minutes * 60;
-        state.timerEndsAt = state.busyUntil + (command.minutes * 60 * 1000);
-        state.restoreAttempts = 0;
-    } else if (command.type === 'cancel' || command.type === 'retry') {
-        restoreAlerts(state);
-    } else if (command.type === 'test') {
-        runNvrTest({ state, now });
-    }
+    if (command.type === 'test') runNvrTest({ state, now });
 };
 
 // Move the device forward in time: run the waiting command when its busy time is over, and turn the alerts back on when the timer ends (call it before reading the state)
@@ -183,38 +176,6 @@ export const submitMockCommand = ({ state, command, now = Date.now() }) => {
     state.busyUntil = now + BUSY_DURATION_MS;
 };
 
-// Check a quiet mode command against what the switch is doing (like checkQuietModeCommand): throws the 409 error, in the order of the firmware
-export const checkQuietModeCommand = ({ state, command }) => {
-    if (state.pendingCommand) throw new EspMockError(409, 'device_busy', 'device_busy');
-    if (command.type === 'start') {
-        if (state.isTimerRunning) throw new EspMockError(409, 'timer_running', 'timer_running');
-        if (!isNvrConfigured(state.nvr)) throw new EspMockError(409, 'nvr_not_configured', 'nvr_not_configured');
-    } else if (command.type === 'cancel') {
-        if (!state.isTimerRunning) throw new EspMockError(409, 'timer_not_running', 'timer_not_running');
-    } else if (command.type === 'retry') {
-        if (!state.hasPendingRestore || state.isTimerRunning) throw new EspMockError(409, 'nothing_to_restore', 'nothing_to_restore');
-    }
-};
-
-// Read a quiet mode body like parseQuietModeCommand: returns the command, or throws the 400 error with the name of the first wrong field
-export const parseQuietModeBody = body => {
-    // The action must be a text
-    if (typeof body.action !== 'string') throw new EspMockError(400, 'invalid_quiet_mode_field', 'action');
-
-    // Start for a number of whole minutes, up to the maximum
-    if (body.action === 'start') {
-        if (!Number.isInteger(body.minutes) || body.minutes < 1 || body.minutes > MAX_MINUTES) throw new EspMockError(400, 'invalid_quiet_mode_field', 'minutes');
-        return { type: 'start', minutes: body.minutes };
-    }
-
-    // Cancel the timer, or retry to restore the alerts
-    if (body.action === 'cancel') return { type: 'cancel' };
-    if (body.action === 'retry') return { type: 'retry' };
-
-    // Unknown action
-    throw new EspMockError(400, 'invalid_quiet_mode_field', 'action');
-};
-
 /******************************** Status ********************************/
 
 // Build the state the dashboard reads (the timer, the alerts and the NVR)
@@ -222,7 +183,6 @@ export const buildStatusPayload = ({ state, now = Date.now() }) => ({
     timerRunning: state.isTimerRunning,
     remainingSeconds: state.isTimerRunning ? Math.max(0, Math.ceil((state.timerEndsAt - now) / 1000)) : 0,
     selectedSeconds: state.selectedSeconds,
-    maxMinutes: MAX_MINUTES,
     alertsStillOff: state.hasPendingRestore,
     busy: state.pendingCommand !== null,
     nvrStatus: state.nvrStatus,

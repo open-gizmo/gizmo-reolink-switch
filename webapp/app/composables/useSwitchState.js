@@ -1,5 +1,5 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { getNvr, getStatus, saveNvr, sendQuietModeCommand, testNvr } from '~/composables/useSwitchApi.js';
+import { getNvr, getStatus, saveNvr, testNvr } from '~/composables/useSwitchApi.js';
 import { computeRemainingSeconds, FAST_REFRESH_DURATION_MS, getStatusRefreshInterval } from '~/composables/useQuietMode.js';
 import { usePolling } from '~/composables/usePolling.js';
 import { useGlobalStore } from '~/composables/stores/useGlobalStore.js';
@@ -51,20 +51,11 @@ const runDeviceRequest = async request => {
         return true;
     } catch (error) {
         // Tell the user, then show the real state of the device again
-        handleBackendErrors({ error, defaultMessage: translate('pages.home.commandError'), showDialog: true });
+        handleBackendErrors({ error, defaultMessage: translate('pages.nvr.testError'), showDialog: true });
         await refreshStatus().catch(() => {});
         return false;
     }
 };
-
-// Start the quiet mode for a number of minutes (true when the device took the command)
-export const startQuietMode = minutes => runDeviceRequest(() => sendQuietModeCommand({ action: 'start', minutes }));
-
-// Cancel the quiet mode and turn the alerts back on
-export const cancelQuietMode = () => runDeviceRequest(() => sendQuietModeCommand({ action: 'cancel' }));
-
-// Try again to turn on the alerts that are still off
-export const retryRestore = () => runDeviceRequest(() => sendQuietModeCommand({ action: 'retry' }));
 
 // Ask the device to test the connection to the NVR
 export const runNvrTest = () => runDeviceRequest(() => testNvr());

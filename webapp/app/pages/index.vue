@@ -1,31 +1,22 @@
 <script setup>
-import { computed, ref, watch } from 'vue';
+import { computed } from 'vue';
 import Alert02Icon from '@hugeicons/core-free-icons/Alert02Icon';
-import Cancel01Icon from '@hugeicons/core-free-icons/Cancel01Icon';
 import CctvIcon from '@hugeicons/core-free-icons/CctvIcon';
 import NotificationOff01Icon from '@hugeicons/core-free-icons/NotificationOff01Icon';
-import Notification01Icon from '@hugeicons/core-free-icons/Notification01Icon';
-import RefreshIcon from '@hugeicons/core-free-icons/RefreshIcon';
 import Timer01Icon from '@hugeicons/core-free-icons/Timer01Icon';
 import { HugeiconsIcon } from '@hugeicons/vue';
 import { Alert, AlertDescription, AlertTitle } from '@brumaombra/ui-vintage/alert';
 import { Button } from '@brumaombra/ui-vintage/button';
 import { EmptyStateCard } from '@brumaombra/ui-vintage/empty-state-card';
 import { ListGroup, ListRow } from '@brumaombra/ui-vintage/list';
-import { ResponsiveDialog } from '@brumaombra/ui-vintage/responsive-dialog';
-import { buildDurationOptions, clampMinutes, DEFAULT_MINUTES, getHomeState, getNvrStatusDetails, hasNvrProblem, pickDefaultMinutes } from '~/composables/useQuietMode.js';
-import { cancelQuietMode, retryRestore, startQuietMode, useCountdown, useStatusPolling } from '~/composables/useSwitchState.js';
+import { getHomeState, getNvrStatusDetails, hasNvrProblem } from '~/composables/useQuietMode.js';
+import { useCountdown, useStatusPolling } from '~/composables/useSwitchState.js';
 import { useGlobalStore } from '~/composables/stores/useGlobalStore.js';
 import StatusGate from '~/components/device/StatusGate.vue';
-import DurationPicker from '~/components/quiet/DurationPicker.vue';
 import StatusHero from '~/components/quiet/StatusHero.vue';
 
 const { t } = useI18n();
 const globalStore = useGlobalStore();
-const isSending = ref(false);
-const isCancelDialogOpen = ref(false);
-const selectedMinutes = ref(DEFAULT_MINUTES);
-let hasPickedDuration = false;
 
 // Reactive device status and what the page shows for it
 const status = computed(() => globalStore.value.status);
@@ -34,60 +25,8 @@ const homeState = computed(() => getHomeState(status.value));
 // Seconds left on the timer, counting down live
 const remainingSeconds = useCountdown();
 
-// Durations to pick from, and the selected one kept inside them
-const durationOptions = computed(() => buildDurationOptions(status.value.maxMinutes));
-const effectiveMinutes = computed(() => clampMinutes({ options: durationOptions.value, minutes: selectedMinutes.value }));
-
-// Whether the device is working: on a command of the device, or on one just sent from this page
-const isBusy = computed(() => status.value.busy || isSending.value);
-
-// Problem of the NVR connection to point out on the controls, with the text that explains it
+// Problem of the NVR connection to point out, with the text that explains it
 const nvrProblem = computed(() => hasNvrProblem(status.value.nvrStatus) ? getNvrStatusDetails(status.value.nvrStatus) : null);
-
-// Start from the duration the device used last, once the status is known (until the user picks one)
-watch(() => globalStore.value.isStatusLoaded, isLoaded => {
-    if (!isLoaded || hasPickedDuration) return;
-    selectedMinutes.value = pickDefaultMinutes({ options: durationOptions.value, selectedSeconds: status.value.selectedSeconds });
-}, { immediate: true });
-
-// Pick a duration
-const handleDurationChange = minutes => {
-    hasPickedDuration = true;
-    selectedMinutes.value = minutes;
-};
-
-// Run a command of the device and show the busy state meanwhile
-const runCommand = async command => {
-    try {
-        isSending.value = true;
-        await command();
-    } finally {
-        isSending.value = false;
-    }
-};
-
-// Start the quiet mode for the selected duration
-const handleStartPress = () => {
-    if (isBusy.value) return;
-    return runCommand(() => startQuietMode(effectiveMinutes.value));
-};
-
-// Ask before cancelling (it turns the alerts back on)
-const handleCancelPress = () => {
-    isCancelDialogOpen.value = true;
-};
-
-// Cancel the quiet mode after the confirmation
-const handleCancelConfirm = () => {
-    isCancelDialogOpen.value = false;
-    return runCommand(() => cancelQuietMode());
-};
-
-// Try again to turn the alerts on
-const handleRetryPress = () => {
-    if (isBusy.value) return;
-    return runCommand(() => retryRestore());
-};
 
 // Read the status while the page is visible
 useStatusPolling();
@@ -113,68 +52,31 @@ definePageMeta({
 
             <div v-else class="space-y-6">
                 <!-- State: alerts on, quiet mode with the countdown, or alerts still off -->
-                <StatusHero :state="homeState" :remaining-seconds="remainingSeconds" :selected-seconds="status.selectedSeconds" :is-busy="isBusy" />
+                <StatusHero :state="homeState" :remaining-seconds="remainingSeconds" :selected-seconds="status.selectedSeconds" :is-busy="status.busy" />
 
-                <!-- Alerts still off: try to turn them on again -->
-                <div v-if="homeState === 'alertsOff'" class="space-y-4">
-                    <Alert color="yellow">
-                        <HugeiconsIcon :icon="Alert02Icon" />
-                        <AlertTitle>{{ t('pages.home.alertsOff.title') }}</AlertTitle>
-                        <AlertDescription>{{ t('pages.home.alertsOff.description') }}</AlertDescription>
-                    </Alert>
-                    <Button variant="primary" class="w-full" size="lg" :disabled="isBusy" :loading="isBusy" data-testid="retry-button" @click="handleRetryPress">
-                        <HugeiconsIcon :icon="RefreshIcon" class="size-4" />
-                        {{ t('pages.home.alertsOff.retryAction') }}
-                    </Button>
-                </div>
+                <!-- Alerts still off: the way out is the button on the switch -->
+                <Alert v-if="homeState === 'alertsOff'" color="yellow" data-testid="alerts-off-warning">
+                    <HugeiconsIcon :icon="Alert02Icon" />
+                    <AlertTitle>{{ t('pages.home.alertsOff.title') }}</AlertTitle>
+                    <AlertDescription>{{ t('pages.home.alertsOff.description') }}</AlertDescription>
+                </Alert>
 
-                <!-- Quiet mode running: cancel it -->
-                <Button v-else-if="homeState === 'running'" variant="secondary" class="w-full" size="lg" :disabled="isBusy" data-testid="cancel-button" @click="handleCancelPress">
-                    <HugeiconsIcon :icon="Notification01Icon" class="size-4" />
-                    {{ t('pages.home.cancelAction') }}
-                </Button>
+                <!-- The NVR has a problem the user can fix -->
+                <Alert v-else-if="nvrProblem && homeState === 'idle'" :color="nvrProblem.tone" data-testid="nvr-problem">
+                    <HugeiconsIcon :icon="Alert02Icon" />
+                    <AlertTitle>{{ t(`pages.nvr.status.${nvrProblem.key}.title`) }}</AlertTitle>
+                    <AlertDescription>
+                        {{ t(`pages.nvr.status.${nvrProblem.key}.description`) }}
+                        <NuxtLinkLocale to="/nvr" class="font-semibold underline">{{ t('pages.home.nvrProblemLink') }}</NuxtLinkLocale>
+                    </AlertDescription>
+                </Alert>
 
-                <!-- Alerts on: pick the duration and start -->
-                <div v-else class="space-y-6">
-                    <!-- The NVR has a problem the user can fix -->
-                    <Alert v-if="nvrProblem" :color="nvrProblem.tone" data-testid="nvr-problem">
-                        <HugeiconsIcon :icon="Alert02Icon" />
-                        <AlertTitle>{{ t(`pages.nvr.status.${nvrProblem.key}.title`) }}</AlertTitle>
-                        <AlertDescription>
-                            {{ t(`pages.nvr.status.${nvrProblem.key}.description`) }}
-                            <NuxtLinkLocale to="/nvr" class="font-semibold underline">{{ t('pages.home.nvrProblemLink') }}</NuxtLinkLocale>
-                        </AlertDescription>
-                    </Alert>
-
-                    <!-- Duration: the choices are chips in one row of the group, so the main flow stays one tap -->
-                    <ListGroup :title="t('pages.home.duration.title')" :hint="t('pages.home.duration.description')">
-                        <ListRow :label="t('pages.home.duration.label')" :icon="Timer01Icon">
-                            <!-- Durations -->
-                            <DurationPicker :model-value="effectiveMinutes" :max-minutes="status.maxMinutes" :disabled="isBusy" @update:model-value="handleDurationChange" />
-                        </ListRow>
-                    </ListGroup>
-
-                    <Button variant="primary" class="w-full" size="lg" :disabled="isBusy" :loading="isBusy" data-testid="start-button" @click="handleStartPress">
-                        <HugeiconsIcon :icon="NotificationOff01Icon" class="size-4" />
-                        {{ t('pages.home.startAction', { minutes: effectiveMinutes }) }}
-                    </Button>
-                </div>
+                <!-- How to control the quiet mode: only with the button on the switch, this page just shows it -->
+                <ListGroup :title="t('pages.home.buttonHelp.title')" :hint="t('pages.home.buttonHelp.hint')" data-testid="button-help">
+                    <ListRow :label="t('pages.home.buttonHelp.shortPress.label')" :description="t('pages.home.buttonHelp.shortPress.description')" :icon="Timer01Icon" />
+                    <ListRow :label="t('pages.home.buttonHelp.longPress.label')" :description="t('pages.home.buttonHelp.longPress.description')" :icon="NotificationOff01Icon" />
+                </ListGroup>
             </div>
         </StatusGate>
-
-        <!-- Confirmation to cancel (a sheet on phones, a dialog on larger screens) -->
-        <ResponsiveDialog v-model:open="isCancelDialogOpen" :title="t('pages.home.cancelDialog.title')" :description="t('pages.home.cancelDialog.description')">
-            <!-- Actions (the main one first: on top in the sheet, rightmost in the dialog) -->
-            <template #footer>
-                <Button type="button" variant="primary" data-testid="cancel-confirm-button" @click="handleCancelConfirm">
-                    <HugeiconsIcon :icon="Notification01Icon" class="size-4" />
-                    {{ t('pages.home.cancelDialog.confirmAction') }}
-                </Button>
-                <Button type="button" variant="secondary" @click="isCancelDialogOpen = false">
-                    <HugeiconsIcon :icon="Cancel01Icon" class="size-4" />
-                    {{ t('pages.home.cancelDialog.keepAction') }}
-                </Button>
-            </template>
-        </ResponsiveDialog>
     </GizmoPage>
 </template>

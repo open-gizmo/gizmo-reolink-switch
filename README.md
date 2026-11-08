@@ -51,7 +51,7 @@ The firmware runs on an ESP32 and gives you a compact standalone interface:
 - The ESP32 connects to WiFi and tells the Reolink NVR to disable notifications and recording on active channels.
 - When the timer finishes, or when you cancel it, the firmware turns notifications and recording back on for the channels it muted.
 
-The same works from your phone: the web dashboard on the device starts and cancels the quiet mode, and shows the countdown.
+The quiet mode is only controlled from the button, on purpose: nobody can mute your cameras without being at the switch. The web dashboard on the device sets it up (the Wi-Fi and the NVR login) and shows its status and the countdown, but can't start, cancel or retry the quiet mode.
 
 The device also provides:
 
@@ -76,8 +76,9 @@ The device also provides:
 
 - One-button interface with short-press and long-press actions.
 - Smart timer selection: `+1 minute` below 5 minutes, then `+5 minutes` increments, up to 60 minutes. One more press goes back to zero, so an overshoot can be fixed without starting the timer.
-- Web dashboard built into the firmware: start the quiet mode for a chosen time, watch the countdown, cancel it, and retry a failed restore, from any phone on your network.
-- Setup without code: the Wi-Fi is set from a setup hotspot with a captive portal, and the NVR address and login from the dashboard, which tests the connection and counts the online cameras.
+- Web dashboard built into the firmware: set the NVR up and watch the status and the countdown from any phone on your network. It never controls the cameras: the quiet mode starts, stops and restores from the button only.
+- Setup without code: the Wi-Fi is set from a setup hotspot with a captive portal, and the NVR address and login from the dashboard, which tests the connection and counts the online cameras. The password is write-only: the dashboard never gets it back, and changing the NVR's address or username clears it, so it's only ever sent to the NVR it was entered for.
+- Factory reset: hold the board's BOOT button for 10 seconds (the LCD counts down) to forget the Wi-Fi and the NVR login. It's refused while cameras are muted, since the saved login is what restores them.
 - Reolink integration using direct API calls from the ESP32.
 - Automatic restore of notifications and recording when the timer ends, with retries if the NVR is unreachable or a muted camera is offline.
 - Muted channels are saved in flash, so the cameras are restored even if the device reboots while they are muted.
@@ -98,12 +99,12 @@ Gizmo Reolink Switch is built around four cooperating parts:
 
 ### 🔄 Data Flow
 
-1. The user presses the button, or taps Start in the dashboard, to choose a quiet-mode duration and start or cancel the timer.
-2. The dashboard hands its command to the firmware's main loop, which runs it through the same steps as the button (only the main loop talks to the NVR).
+1. The user presses the button to choose a quiet-mode duration, and holds it to start or cancel the timer.
+2. The firmware's main loop runs it (only the main loop talks to the NVR).
 3. When quiet mode starts, the ESP32 authenticates with the Reolink NVR and disables notifications and recording on active channels.
 4. While the timer runs, the LCD and the dashboard show the countdown, and the buzzer warns near the end.
 5. When the timer completes or is cancelled, the ESP32 turns notifications and recording back on for the muted channels and returns to the idle screen.
-6. If the restore fails, or a muted camera is offline, the LCD shows `Alerts Still OFF`, the dashboard shows a warning with a Retry button, and the firmware retries every minute.
+6. If the restore fails, or a muted camera is offline, the LCD shows `Alerts Still OFF` and the dashboard a warning. The firmware retries every minute, and holding the button retries right away.
 
 <a id="quick-start"></a>
 ## 🚀 Quick Start
@@ -175,7 +176,7 @@ The LCD now shows `Set Up NVR` and the address of the switch. Open it in the bro
 
 6. **Leave home quietly.**
 
-Press the button to choose the time and hold it to start, or do the same from the dashboard's home page.
+Press the button to choose the time and hold it to start. The dashboard's home page shows the countdown.
 
 <a id="hardware"></a>
 ## 🔌 Hardware
@@ -209,7 +210,7 @@ The main firmware entry point is [src/main.cpp](microcontroller/src/main.cpp). I
 
 - Initializes all modules.
 - Shows the setup steps until the Wi-Fi and the NVR are set up.
-- Runs the dashboard's commands, and publishes what the switch is doing for it.
+- Runs the NVR check the dashboard asks for, and publishes what the switch is doing for it.
 - Polls the button.
 - Updates the timer state machine.
 - Keeps the LCD and buzzer in sync with the current state.
@@ -222,7 +223,7 @@ The firmware is split into focused modules under `src/`:
 - 🔔 `buzzer/` drives audible feedback.
 - 📺 `display/` manages the LCD screens and layout.
 - 🔐 `nvr/` saves the NVR login set from the dashboard in NVS, and checks the login the dashboard sends.
-- 🛰️ `remote/` hands the dashboard's commands to the main loop, and publishes what the switch is doing for the dashboard.
+- 🛰️ `remote/` hands the dashboard's NVR check to the main loop, and publishes what the switch is doing for the dashboard.
 - 🌐 `server/` serves the dashboard and its API, one file per endpoint.
 - ⏱️ `menu/` implements timer selection and countdown state.
 - 📡 `wifi/` runs the Wi-Fi setup hotspot and keeps the connection, with the shared gizmo-common library.
@@ -248,12 +249,11 @@ The firmware mutes the active channels when quiet mode starts and turns them bac
 
 ### 🌐 Web API
 
-Every response has the OpenGizmo shape `{ errorId, errorMessage, data }`, and only requests from the dashboard's own page are accepted:
+Every response has the OpenGizmo shape `{ errorId, errorMessage, data }`. Only requests from the dashboard's own page, under the switch's own name or address, are accepted, and through the setup hotspot only the Wi-Fi setup answers (see gizmo-common). No endpoint controls the cameras:
 
 - `GET /api/status` returns the timer, the remaining time, whether alerts are still off, whether the switch is busy, the NVR state and the online cameras.
-- `POST /api/quiet-mode` takes `{ action: "start", minutes }`, `{ action: "cancel" }` or `{ action: "retry" }`. The main loop runs it, and the dashboard follows it with `/api/status`.
 - `GET /api/nvr` returns the NVR address and username, and whether a password is saved (the password is never sent back).
-- `POST /api/nvr` saves a new login (an empty password keeps the saved one) and checks it. It's refused while cameras are muted, so they are always restored by the NVR that muted them.
+- `POST /api/nvr` saves a new login and checks it. An empty password keeps the saved one only for the same address and username: a new address or username needs the password again (`invalid_nvr_field`, `password`), so the saved one is never sent anywhere else. It's refused while cameras are muted, so they are always restored by the NVR that muted them.
 - `POST /api/nvr-test` checks the login again.
 - The Wi-Fi setup and device routes come from gizmo-common.
 
@@ -334,7 +334,7 @@ The workflow only runs on `main`, and needs these secrets, on the repository or 
 - The `Gizmo-Reolink` hotspot doesn't appear: it only opens when there's no saved network or the saved one fails to connect.
 - `gizmo-reolink-switch.local` doesn't open: some networks and devices don't support mDNS. Use the IP address the LCD shows, or the one on the dashboard's settings page.
 - `NVR Not Set` / `Use the web app`: no NVR login is saved yet. Open the dashboard and set it on the **NVR** page.
-- The NVR page won't save: the login can't change while cameras are muted (they must be restored by the NVR that muted them). Wait for the timer to end, or cancel it, and retry if alerts are still off.
+- The NVR page won't save: the login can't change while cameras are muted (they must be restored by the NVR that muted them). Wait for the timer to end, or cancel it with the button, and retry with the button if alerts are still off.
 - NVR state does not restore: the LCD shows `Alerts Still OFF` and the firmware keeps retrying. Hold the button to retry right away, or flash the `debug` profile and read the serial log.
 - `Partly Muted!` after starting the timer: the NVR refused some commands (for example recording on a channel without a disk). The muted settings are still restored at the end, and the refused ones were never changed.
 - `Login Paused` / `Check password`: the NVR refused a login, so the firmware waits 10 minutes before trying again (repeated wrong-password logins can lock the NVR account). Fix the username or password on the dashboard's **NVR** page (saving a new login ends the pause), or wait.

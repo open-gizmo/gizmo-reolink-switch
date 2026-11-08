@@ -28,3 +28,11 @@ export const buildNvrBody = ({ host, username, password }) => ({
     username: String(username ?? '').trim(),
     password: password || ''
 });
+
+// Read an address like the device does, to compare it with the saved one: without the scheme and the trailing slashes
+const normalizeHost = host => String(host ?? '').trim().replace(/^https?:\/\//, '').replace(/\/+$/, '');
+
+// Check if the address or the username differ from the saved login (the device then forgets the saved password, which only works for the NVR it was entered for)
+export const hasNvrLoginChanged = ({ host, username, savedHost, savedUsername }) => {
+    return normalizeHost(host) !== normalizeHost(savedHost) || String(username ?? '').trim() !== String(savedUsername ?? '').trim();
+};

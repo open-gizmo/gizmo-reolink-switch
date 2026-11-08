@@ -6,7 +6,7 @@ import HomePage from '~/pages/index.vue';
 import NvrPage from '~/pages/nvr.vue';
 import SettingsPage from '~/pages/settings.vue';
 import { initialStatus } from '~/composables/useQuietMode.js';
-import { cancelQuietMode, loadNvr, loadStatus, refreshStatus, retryRestore, startQuietMode } from '~/composables/useSwitchState.js';
+import { loadNvr, loadStatus, refreshStatus, runNvrTest } from '~/composables/useSwitchState.js';
 import { useGlobalStore } from '~/composables/stores/useGlobalStore.js';
 
 // Record the error dialogs and the toasts instead of rendering them
@@ -28,7 +28,6 @@ const buildStatus = changes => ({
     timerRunning: false,
     remainingSeconds: 0,
     selectedSeconds: 0,
-    maxMinutes: 60,
     alertsStillOff: false,
     busy: false,
     nvrStatus: 'connected',
@@ -44,7 +43,6 @@ let deviceStatus;
 let deviceNvr;
 let isDeviceAvailable;
 let nextError;
-let quietModeBodies;
 let nvrBodies;
 let nvrTestCount;
 let statusCount;
@@ -65,21 +63,6 @@ const registerDeviceEndpoints = () => {
         if (!isDeviceAvailable) throw createError({ statusCode: 500, data: { errorId: null, errorMessage: 'Unreachable', data: null } });
         return { errorId: null, errorMessage: null, data: deviceStatus };
     });
-    registerEndpoint('/api/quiet-mode', {
-        method: 'POST',
-        handler: async event => {
-            quietModeBodies.push(await readBody(event));
-            const refusal = takeNextError(event);
-            if (refusal) return refusal;
-            const body = quietModeBodies[quietModeBodies.length - 1];
-
-            // The device is busy for a moment, then it runs the command
-            if (body.action === 'start') deviceStatus = { ...deviceStatus, busy: false, timerRunning: true, remainingSeconds: body.minutes * 60, selectedSeconds: body.minutes * 60 };
-            if (body.action === 'cancel') deviceStatus = { ...deviceStatus, busy: false, timerRunning: false, remainingSeconds: 0 };
-            if (body.action === 'retry') deviceStatus = { ...deviceStatus, busy: false, alertsStillOff: false };
-            return { errorId: null, errorMessage: null, data: deviceStatus };
-        }
-    });
     registerEndpoint('/api/nvr', {
         method: 'GET',
         handler: () => ({ errorId: null, errorMessage: null, data: deviceNvr })
@@ -91,7 +74,14 @@ const registerDeviceEndpoints = () => {
             const refusal = takeNextError(event);
             if (refusal) return refusal;
             const body = nvrBodies[nvrBodies.length - 1];
-            deviceNvr = { host: body.host, username: body.username, hasPassword: Boolean(body.password) || deviceNvr.hasPassword, configured: true };
+
+            // The saved password only works for the same address and username
+            const host = body.host.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+            if (!body.password && (host !== deviceNvr.host || body.username !== deviceNvr.username)) {
+                setResponseStatus(event, 400);
+                return { errorId: 'invalid_nvr_field', errorMessage: 'password', data: null };
+            }
+            deviceNvr = { host, username: body.username, hasPassword: Boolean(body.password) || deviceNvr.hasPassword, configured: true };
             deviceStatus = { ...deviceStatus, nvrStatus: 'connected', cameraCount: 4 };
             return { errorId: null, errorMessage: null, data: deviceNvr };
         }
@@ -142,7 +132,6 @@ beforeEach(() => {
     deviceNvr = buildNvr();
     isDeviceAvailable = true;
     nextError = null;
-    quietModeBodies = [];
     nvrBodies = [];
     nvrTestCount = 0;
     statusCount = 0;
@@ -188,23 +177,13 @@ describe('loadStatus', () => {
         expect(globalStore.value.isStatusLoadFailed).toBe(true);
     });
 
-    // A refused command shows the real state again, and the user gets the reason in plain words
+    // A refused test shows the real state again, and the user gets the reason in plain words
     it('returns false and explains the refusal when the device says no', async () => {
         await loadStatus();
-        nextError = { statusCode: 409, errorId: 'timer_running' };
-        const isStarted = await startQuietMode(5);
-        expect(isStarted).toBe(false);
-        expect(dialogs[0].message).toContain('already on');
-    });
-
-    // The commands send what the firmware expects
-    it('sends the three quiet mode commands', async () => {
-        await loadStatus();
-        await startQuietMode(15);
-        await cancelQuietMode();
-        deviceStatus = buildStatus({ alertsStillOff: true });
-        await retryRestore();
-        expect(quietModeBodies).toEqual([{ action: 'start', minutes: 15 }, { action: 'cancel' }, { action: 'retry' }]);
+        nextError = { statusCode: 409, errorId: 'device_busy' };
+        const isTested = await runNvrTest();
+        expect(isTested).toBe(false);
+        expect(dialogs[0].message).toContain('busy with something else');
     });
 
     // The login is read without a password
@@ -215,12 +194,22 @@ describe('loadStatus', () => {
     });
 });
 
-// Home page: the state, the duration, start, cancel and retry
+// Home page: the state, read-only (the quiet mode is controlled with the button of the switch)
 describe('home page', () => {
-    // While the status is loading there is no control that could send a command
-    it('waits for the status before showing the controls', async () => {
+    // Every control the page used to have to command the quiet mode
+    const COMMAND_SELECTORS = ['start-button', 'cancel-button', 'retry-button', 'cancel-confirm-button'];
+
+    // Check that the page offers no way to command the quiet mode
+    const expectNoCommands = wrapper => {
+        for (const testId of COMMAND_SELECTORS) expect(wrapper.find(`[data-testid="${testId}"]`).exists(), testId).toBe(false);
+        expect(wrapper.findAll('[role="radio"]')).toHaveLength(0);
+        expect(wrapper.findAll('button')).toHaveLength(0);
+    };
+
+    // While the status is loading the page shows nothing of the device
+    it('waits for the status before showing the state', async () => {
         const wrapper = await mountPage(HomePage);
-        expect(wrapper.find('[data-testid="start-button"]').exists()).toBe(false);
+        expect(wrapper.find('[data-testid="status-hero"]').exists()).toBe(false);
         expect(wrapper.text()).toContain('Reading the device');
     });
 
@@ -229,61 +218,36 @@ describe('home page', () => {
         isDeviceAvailable = false;
         const wrapper = await mountPage(HomePage);
         await vi.waitFor(() => expect(wrapper.text()).toContain('Couldn\'t read the device'));
-        expect(wrapper.find('[data-testid="start-button"]').exists()).toBe(false);
+        expect(wrapper.find('[data-testid="status-hero"]').exists()).toBe(false);
 
         // Try again once the device answers
         isDeviceAvailable = true;
         await findButton(wrapper, 'Try again').trigger('click');
-        await vi.waitFor(() => expect(wrapper.find('[data-testid="start-button"]').exists()).toBe(true));
+        await vi.waitFor(() => expect(wrapper.find('[data-testid="status-hero"]').exists()).toBe(true));
     });
 
-    // The first thing the page says is that the alerts are on
-    it('shows that the alerts are on, with every duration', async () => {
+    // The first thing the page says is that the alerts are on, and that only the button of the switch controls the quiet mode
+    it('shows that the alerts are on, with no control and the explanation of the button', async () => {
         const wrapper = await mountLoaded(HomePage);
         expect(wrapper.find('[data-testid="status-hero"]').text()).toContain('Alerts on');
-        const chips = wrapper.findAll('[role="radio"]').map(chip => chip.text());
-        expect(chips).toEqual(['1 min', '2 min', '3 min', '5 min', '10 min', '15 min', '30 min', '45 min', '60 min']);
-        expect(wrapper.find('[data-testid="duration-10"]').attributes('aria-checked')).toBe('true');
-        expect(wrapper.find('[data-testid="start-button"]').text()).toContain('Start quiet mode for 10 min');
-        expect(wrapper.find('[data-testid="cancel-button"]').exists()).toBe(false);
+        expectNoCommands(wrapper);
+        const help = wrapper.find('[data-testid="button-help"]').text();
+        expect(help).toContain('Short press');
+        expect(help).toContain('Choose how long the quiet mode lasts');
+        expect(help).toContain('Hold the button');
+        expect(help).toContain('Start the quiet mode, or cancel it');
+        expect(help).toContain('only with the button on the switch');
+        expect(wrapper.find('[data-testid="alerts-off-warning"]').exists()).toBe(false);
     });
 
-    // The maximum of the device decides the longest chip
-    it('honors the maximum minutes of the device', async () => {
-        deviceStatus = buildStatus({ maxMinutes: 15 });
-        const wrapper = await mountLoaded(HomePage);
-        const chips = wrapper.findAll('[role="radio"]').map(chip => chip.text());
-        expect(chips).toEqual(['1 min', '2 min', '3 min', '5 min', '10 min', '15 min']);
-    });
-
-    // The duration of the last timer is the one to suggest
-    it('selects the duration the device used last', async () => {
-        deviceStatus = buildStatus({ selectedSeconds: 45 * 60 });
-        const wrapper = await mountLoaded(HomePage);
-        expect(wrapper.find('[data-testid="duration-45"]').attributes('aria-checked')).toBe('true');
-    });
-
-    // The Start button sends the picked duration
-    it('starts the quiet mode for the picked duration', async () => {
-        const wrapper = await mountLoaded(HomePage);
-        await wrapper.find('[data-testid="duration-30"]').trigger('click');
-        expect(wrapper.find('[data-testid="start-button"]').text()).toContain('Start quiet mode for 30 min');
-        await wrapper.find('[data-testid="start-button"]').trigger('click');
-        await vi.waitFor(() => expect(quietModeBodies).toEqual([{ action: 'start', minutes: 30 }]));
-
-        // The page shows the running timer from the answer
-        await vi.waitFor(() => expect(wrapper.find('[data-testid="countdown"]').exists()).toBe(true));
-        expect(wrapper.find('[data-testid="status-hero"]').text()).toContain('Quiet mode');
-        expect(wrapper.find('[data-testid="cancel-button"]').exists()).toBe(true);
-        expect(wrapper.find('[data-testid="start-button"]').exists()).toBe(false);
-    });
-
-    // The countdown shows the minutes and seconds the device sent
-    it('shows the time left of a running timer', async () => {
+    // The countdown shows the minutes and seconds the device sent, with nothing to cancel it
+    it('shows the time left of a running timer, without a cancel button', async () => {
         deviceStatus = buildStatus({ timerRunning: true, remainingSeconds: 754, selectedSeconds: 900 });
         const wrapper = await mountLoaded(HomePage);
         expect(wrapper.find('[data-testid="countdown"]').text()).toMatch(/^12:3[345]$/);
         expect(wrapper.find('[data-testid="status-hero"]').text()).toContain('left before the alerts come back');
+        expectNoCommands(wrapper);
+        expect(wrapper.find('[data-testid="button-help"]').exists()).toBe(true);
     });
 
     // The countdown used to move only with each read of the status, every 2 seconds
@@ -294,61 +258,45 @@ describe('home page', () => {
         await vi.waitFor(() => expect(wrapper.find('[data-testid="countdown"]').text()).not.toBe(first), { timeout: 2500, interval: 100 });
     });
 
-    // The only action of a running timer is to cancel, after a confirmation
-    it('asks before cancelling, and sends nothing until the user confirms', async () => {
-        deviceStatus = buildStatus({ timerRunning: true, remainingSeconds: 300, selectedSeconds: 600 });
-        const wrapper = await mountLoaded(HomePage);
-        await wrapper.find('[data-testid="cancel-button"]').trigger('click');
-        await vi.waitFor(() => expect(document.body.textContent).toContain('Turn the alerts back on?'));
-        expect(quietModeBodies).toEqual([]);
-
-        // Keeping the quiet mode closes the dialog without a command
-        findDialogButton('Keep quiet mode').click();
-        await vi.waitFor(() => expect(document.body.textContent).not.toContain('Turn the alerts back on?'));
-        expect(quietModeBodies).toEqual([]);
-
-        // Confirming sends the cancel
-        await wrapper.find('[data-testid="cancel-button"]').trigger('click');
-        await vi.waitFor(() => expect(findDialogButton('Yes, turn alerts on')).toBeTruthy());
-        findDialogButton('Yes, turn alerts on').click();
-        await vi.waitFor(() => expect(quietModeBodies).toEqual([{ action: 'cancel' }]));
-        await vi.waitFor(() => expect(wrapper.find('[data-testid="status-hero"]').text()).toContain('Alerts on'));
-    });
-
-    // The warning is the loudest thing on the page, and the way out is the Retry button
-    it('warns when the alerts are still off, and retries', async () => {
+    // The way out of the warning is the button of the switch, not the page
+    it('warns when the alerts are still off, and says to hold the button to try again', async () => {
         deviceStatus = buildStatus({ alertsStillOff: true });
         const wrapper = await mountLoaded(HomePage);
         expect(wrapper.find('[data-testid="status-hero"]').text()).toContain('Alerts still off');
-        expect(wrapper.text()).toContain('Your cameras may not be alerting you');
-        expect(wrapper.find('[data-testid="start-button"]').exists()).toBe(false);
-
-        // Retry sends the retry command, and the warning goes away
-        await wrapper.find('[data-testid="retry-button"]').trigger('click');
-        await vi.waitFor(() => expect(quietModeBodies).toEqual([{ action: 'retry' }]));
-        await vi.waitFor(() => expect(wrapper.find('[data-testid="status-hero"]').text()).toContain('Alerts on'));
+        const warning = wrapper.find('[data-testid="alerts-off-warning"]').text();
+        expect(warning).toContain('Your cameras may not be alerting you');
+        expect(warning).toContain('hold the button on the switch to try again');
+        expectNoCommands(wrapper);
     });
 
-    // The device works on one command at a time
-    it('shows the busy state and blocks the buttons while the device works', async () => {
+    // The state follows the device: the page shows the end of the quiet mode by itself
+    it('goes back to alerts on when the device ends the quiet mode', async () => {
+        deviceStatus = buildStatus({ timerRunning: true, remainingSeconds: 5, selectedSeconds: 60 });
+        const wrapper = await mountLoaded(HomePage);
+        expect(wrapper.find('[data-testid="status-hero"]').text()).toContain('Quiet mode');
+        deviceStatus = buildStatus();
+        await vi.waitFor(() => expect(wrapper.find('[data-testid="status-hero"]').text()).toContain('Alerts on'), { timeout: 4000, interval: 100 });
+        expect(wrapper.find('[data-testid="countdown"]').exists()).toBe(false);
+    });
+
+    // The device works on one thing at a time
+    it('shows the busy state while the device works', async () => {
         deviceStatus = buildStatus({ busy: true });
         const wrapper = await mountLoaded(HomePage);
         expect(wrapper.find('[data-testid="busy-note"]').text()).toContain('The device is working');
-        expect(wrapper.find('[data-testid="start-button"]').attributes('disabled')).toBeDefined();
-        expect(wrapper.find('[data-testid="duration-5"]').attributes('disabled')).toBeDefined();
     });
 
-    // Without an NVR there is nothing to mute: the setup card replaces the controls
+    // Without an NVR there is nothing to mute: the setup card replaces the page
     it('shows the setup card with a link to the NVR page when the NVR is not set up', async () => {
         deviceStatus = buildStatus({ nvrStatus: 'not_configured', cameraCount: 0 });
         const wrapper = await mountLoaded(HomePage);
         expect(wrapper.find('[data-testid="setup-card"]').text()).toContain('Set up your NVR first');
         expect(wrapper.find('a[href="/nvr"]').exists()).toBe(true);
-        expect(wrapper.find('[data-testid="start-button"]').exists()).toBe(false);
-        expect(wrapper.findAll('[role="radio"]')).toHaveLength(0);
+        expect(wrapper.find('[data-testid="button-help"]').exists()).toBe(false);
+        for (const testId of COMMAND_SELECTORS) expect(wrapper.find(`[data-testid="${testId}"]`).exists(), testId).toBe(false);
     });
 
-    // A problem of the NVR is told next to the controls, with the way to fix it
+    // A problem of the NVR is told on the page, with the way to fix it
     it.each([
         ['unreachable', 'Check the address'],
         ['login_refused', 'Check the username and the password'],
@@ -358,49 +306,7 @@ describe('home page', () => {
         const wrapper = await mountLoaded(HomePage);
         expect(wrapper.find('[data-testid="nvr-problem"]').text()).toContain(text);
         expect(wrapper.find('[data-testid="nvr-problem"] a[href="/nvr"]').exists()).toBe(true);
-        expect(wrapper.find('[data-testid="start-button"]').exists()).toBe(true);
-    });
-
-    // Errors of the device are explained in plain words, and the page shows the real state again
-    it.each([
-        [409, 'device_busy', 'busy with something else'],
-        [409, 'timer_running', 'already on'],
-        [409, 'nvr_not_configured', 'not set up yet'],
-        [400, 'invalid_quiet_mode_field', 'didn\'t accept the duration']
-    ])('explains the error %i %s when starting', async (statusCode, errorId, text) => {
-        const wrapper = await mountLoaded(HomePage);
-        nextError = { statusCode, errorId };
-        await wrapper.find('[data-testid="start-button"]').trigger('click');
-        await vi.waitFor(() => expect(dialogs).toHaveLength(1));
-        expect(dialogs[0].message).toContain(text);
-        expect(dialogs[0].type).toBe('error');
-
-        // The controls are back for another try
-        await vi.waitFor(() => expect(wrapper.find('[data-testid="start-button"]').attributes('disabled')).toBeUndefined());
-    });
-
-    // A timer that ended meanwhile is "not running": the page learns it from the status
-    it('explains a cancel that finds no timer, and shows the real state', async () => {
-        deviceStatus = buildStatus({ timerRunning: true, remainingSeconds: 300, selectedSeconds: 600 });
-        const wrapper = await mountLoaded(HomePage);
-        deviceStatus = buildStatus();
-        nextError = { statusCode: 409, errorId: 'timer_not_running' };
-        await wrapper.find('[data-testid="cancel-button"]').trigger('click');
-        await vi.waitFor(() => expect(findDialogButton('Yes, turn alerts on')).toBeTruthy());
-        findDialogButton('Yes, turn alerts on').click();
-        await vi.waitFor(() => expect(dialogs[0]?.message).toContain('not on'));
-        await vi.waitFor(() => expect(wrapper.find('[data-testid="status-hero"]').text()).toContain('Alerts on'));
-    });
-
-    // The retry of alerts that are no longer pending is a plain-words error too
-    it('explains a retry with nothing to restore', async () => {
-        deviceStatus = buildStatus({ alertsStillOff: true });
-        const wrapper = await mountLoaded(HomePage);
-        deviceStatus = buildStatus();
-        nextError = { statusCode: 409, errorId: 'nothing_to_restore' };
-        await wrapper.find('[data-testid="retry-button"]').trigger('click');
-        await vi.waitFor(() => expect(dialogs[0]?.message).toContain('already on'));
-        await vi.waitFor(() => expect(wrapper.find('[data-testid="status-hero"]').text()).toContain('Alerts on'));
+        expect(wrapper.find('[data-testid="button-help"]').exists()).toBe(true);
     });
 
     // The status is polled while the page is open, and no more when it is left
@@ -414,19 +320,6 @@ describe('home page', () => {
         const countAtUnmount = statusCount;
         await new Promise(resolve => setTimeout(resolve, 2600));
         expect(statusCount).toBeLessThanOrEqual(countAtUnmount + 1);
-    });
-
-    // After a command the status is read every 500 ms, so the busy state ends as soon as the device is done
-    it('reads the status faster after a command', async () => {
-        const wrapper = await mountLoaded(HomePage);
-        await vi.waitFor(() => expect(statusCount).toBeGreaterThan(1), { timeout: 4000, interval: 100 });
-        const countBeforeCommand = statusCount;
-        await wrapper.find('[data-testid="start-button"]').trigger('click');
-        await vi.waitFor(() => expect(quietModeBodies).toHaveLength(1));
-        const countAfterCommand = statusCount;
-        await new Promise(resolve => setTimeout(resolve, 1600));
-        expect(countBeforeCommand).toBeGreaterThan(0);
-        expect(statusCount - countAfterCommand).toBeGreaterThanOrEqual(3);
     });
 });
 
@@ -488,15 +381,95 @@ describe('NVR page', () => {
         expect(wrapper.find('#nvr-password').attributes('type')).toBe('password');
     });
 
-    // Save sends the login, keeps the saved password when none is typed, and shows the test
+    // Save sends the login, keeps the saved password when none is typed (the same NVR), and shows the test
     it('saves the login with an empty password to keep the saved one', async () => {
         const wrapper = await mountForm();
-        await type(wrapper, '#nvr-host', ' 192.168.1.20 ');
+        await type(wrapper, '#nvr-host', ' http://192.168.1.10/ ');
         await wrapper.find('form').trigger('submit');
-        await vi.waitFor(() => expect(nvrBodies).toEqual([{ host: '192.168.1.20', username: 'admin', password: '' }]));
+        await vi.waitFor(() => expect(nvrBodies).toEqual([{ host: 'http://192.168.1.10/', username: 'admin', password: '' }]));
         await vi.waitFor(() => expect(toasts).toHaveLength(1));
         expect(toasts[0].type).toBe('success');
+        expect(document.body.textContent).not.toContain('Change the NVR?');
+    });
+
+    // A new address or username would delete the saved password: the user is asked before, and nothing is sent
+    it.each([
+        ['address', '#nvr-host', '192.168.1.20'],
+        ['username', '#nvr-username', 'root']
+    ])('asks before a new %s deletes the saved password', async (name, selector, value) => {
+        const wrapper = await mountForm();
+        await type(wrapper, selector, value);
+        await wrapper.find('form').trigger('submit');
+        await vi.waitFor(() => expect(document.body.textContent).toContain('Change the NVR?'));
+        expect(document.body.textContent).toContain('Changing the address or the username deletes it');
+        expect(findDialogButton('Change and clear the password')).toBeTruthy();
+        expect(nvrBodies).toEqual([]);
+    });
+
+    // Keeping the saved NVR puts the saved address and username back
+    it('puts the saved login back when the user keeps the saved NVR', async () => {
+        const wrapper = await mountForm();
+        await type(wrapper, '#nvr-host', '192.168.1.20');
+        await type(wrapper, '#nvr-username', 'root');
+        await wrapper.find('form').trigger('submit');
+        await vi.waitFor(() => expect(findDialogButton('Keep the saved NVR')).toBeTruthy());
+        findDialogButton('Keep the saved NVR').click();
+        await vi.waitFor(() => expect(document.body.textContent).not.toContain('Change the NVR?'));
+        expect(wrapper.find('#nvr-host').element.value).toBe('192.168.1.10');
+        expect(wrapper.find('#nvr-username').element.value).toBe('admin');
+        expect(wrapper.find('#nvr-password').attributes('placeholder')).toBe('Saved');
+        expect(nvrBodies).toEqual([]);
+    });
+
+    // Confirming clears the saved password: the form needs the one of the new NVR, and sends it
+    it('requires a password after the user confirms, and sends it', async () => {
+        const wrapper = await mountForm();
+        await type(wrapper, '#nvr-host', '192.168.1.20');
+        await wrapper.find('form').trigger('submit');
+        await vi.waitFor(() => expect(findDialogButton('Change and clear the password')).toBeTruthy());
+        findDialogButton('Change and clear the password').click();
+        await vi.waitFor(() => expect(document.body.textContent).not.toContain('Change the NVR?'));
+
+        // The saved password is gone: the field is empty and required, and nothing is sent
         expect(wrapper.find('#nvr-host').element.value).toBe('192.168.1.20');
+        expect(wrapper.find('#nvr-password').attributes('placeholder')).toBe('Password of the new NVR');
+        expect(wrapper.find('[data-testid="password-note"]').text()).toContain('The saved password was deleted');
+        expect(wrapper.find('[data-testid="save-button"]').attributes('disabled')).toBeDefined();
+        await wrapper.find('form').trigger('submit');
+        expect(nvrBodies).toEqual([]);
+
+        // With the new password the login is sent, without asking again
+        await type(wrapper, '#nvr-password', 'n3w-pass');
+        expect(wrapper.find('[data-testid="save-button"]').attributes('disabled')).toBeUndefined();
+        await wrapper.find('form').trigger('submit');
+        await vi.waitFor(() => expect(nvrBodies).toEqual([{ host: '192.168.1.20', username: 'admin', password: 'n3w-pass' }]));
+        await vi.waitFor(() => expect(toasts).toHaveLength(1));
+        expect(document.body.textContent).not.toContain('Change the NVR?');
+        expect(wrapper.find('#nvr-password').attributes('placeholder')).toBe('Saved');
+    });
+
+    // A new password with a new address needs no confirmation
+    it('saves a new address with a new password without asking', async () => {
+        const wrapper = await mountForm();
+        await type(wrapper, '#nvr-host', '192.168.1.20');
+        await type(wrapper, '#nvr-username', 'root');
+        await type(wrapper, '#nvr-password', 'n3w-pass');
+        await wrapper.find('form').trigger('submit');
+        await vi.waitFor(() => expect(nvrBodies).toEqual([{ host: '192.168.1.20', username: 'root', password: 'n3w-pass' }]));
+        expect(document.body.textContent).not.toContain('Change the NVR?');
+    });
+
+    // Without a saved password there is nothing to delete
+    it('does not ask when no password is saved', async () => {
+        deviceNvr = buildNvr({ host: '', username: '', hasPassword: false, configured: false });
+        deviceStatus = buildStatus({ nvrStatus: 'not_configured', cameraCount: 0 });
+        const wrapper = await mountForm();
+        await type(wrapper, '#nvr-host', '192.168.1.20');
+        await type(wrapper, '#nvr-username', 'root');
+        await type(wrapper, '#nvr-password', 'secret');
+        await wrapper.find('form').trigger('submit');
+        await vi.waitFor(() => expect(nvrBodies).toHaveLength(1));
+        expect(document.body.textContent).not.toContain('Change the NVR?');
     });
 
     // A new password is sent, and forgotten by the form once saved
@@ -512,6 +485,7 @@ describe('NVR page', () => {
     it('shows the login as the device kept it', async () => {
         const wrapper = await mountForm();
         await type(wrapper, '#nvr-host', 'http://nvr.local/');
+        await type(wrapper, '#nvr-password', 'n3w-pass');
         await wrapper.find('form').trigger('submit');
         await vi.waitFor(() => expect(nvrBodies).toHaveLength(1));
         deviceNvr = buildNvr({ host: 'nvr.local' });

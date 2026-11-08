@@ -10,7 +10,7 @@
 // Write the login into a JSON object (the password only as whether one is set)
 void writeNvrSettingsToJson(JsonObject json, const NvrSettings &settings);
 
-// Apply a login from the web app, all or nothing (an empty or missing password keeps the saved one; returns the name of the first invalid field, or nullptr)
+// Apply a login from the web app, all or nothing (an empty or missing password keeps the saved one, for the same address and username only: a new address or username needs the password again; returns the name of the first invalid field, or nullptr)
 const char *applyNvrSettingsFromJson(JsonObjectConst json, NvrSettings &settings);
 
 #endif

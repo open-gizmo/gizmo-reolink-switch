@@ -63,7 +63,7 @@ void writeNvrSettingsToJson(JsonObject json, const NvrSettings &settings) {
 	json["configured"] = isNvrConfigured(settings);
 }
 
-// Apply a login from the web app, all or nothing (an empty or missing password keeps the saved one; returns the name of the first invalid field, or nullptr)
+// Apply a login from the web app, all or nothing (an empty or missing password keeps the saved one, but only for the same address and username: the saved password is never sent anywhere else; returns the name of the first invalid field, or nullptr)
 const char *applyNvrSettingsFromJson(JsonObjectConst json, NvrSettings &settings) {
 	NvrSettings updated = settings;
 
@@ -76,6 +76,11 @@ const char *applyNvrSettingsFromJson(JsonObjectConst json, NvrSettings &settings
 	// Read the username
 	if (!readRequiredText(json["username"], updated.username, sizeof(updated.username))) {
 		return "username";
+	}
+
+	// A new address or username forgets the saved password, so the switch never logs in somewhere else with it (the web app asks before, and the password must be typed again)
+	if (strcmp(updated.host, settings.host) != 0 || strcmp(updated.username, settings.username) != 0) {
+		updated.password[0] = '\0';
 	}
 
 	// Read the password, unless it's left empty to keep the saved one

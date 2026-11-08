@@ -3,19 +3,15 @@
 
 #include <stdint.h>
 
-// Commands the web app sends to the main loop (the loop runs them, since only it talks to the NVR)
+// Commands the web app sends to the main loop (the loop runs them, since only it talks to the NVR); the web app sets the device up, and never controls the cameras: the quiet mode only starts, stops and restores from the button
 enum class RemoteCommandType : uint8_t {
 	None,
-	StartQuietMode,
-	CancelQuietMode,
-	RetryRestore,
 	TestNvr,
 };
 
 // A command from the web app
 struct RemoteCommand {
 	RemoteCommandType type;
-	uint32_t durationSeconds; // For StartQuietMode
 };
 
 // Last known state of the NVR connection (the values are part of the web API)

@@ -60,20 +60,6 @@ MenuEvent increaseSelectedDuration() {
 	return MenuEvent::SelectionChanged;
 }
 
-// Select a duration chosen in the web app, up to the maximum (ignored while the timer runs)
-MenuEvent setSelectedDuration(uint32_t durationSeconds) {
-	if (timerRunning) {
-		return MenuEvent::None;
-	}
-
-	// Keep the duration within the maximum
-	selectedDurationSeconds = durationSeconds > config::TIMER_MAX_DURATION_SECONDS ? config::TIMER_MAX_DURATION_SECONDS : durationSeconds;
-	updateMenuDisplayText("Selected duration: ", selectedDurationSeconds);
-
-	// Return the event indicating that the selection has changed
-	return MenuEvent::SelectionChanged;
-}
-
 // Start the timer when idle or cancel it while it is running
 MenuEvent activateOrCancelTimer() {
 	// Cancel the timer if it is currently running

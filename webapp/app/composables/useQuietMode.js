@@ -1,9 +1,3 @@
-// Durations offered by the picker, in minutes (the ones above the maximum of the device are left out)
-export const DURATION_PRESETS = [1, 2, 3, 5, 10, 15, 30, 45, 60];
-
-// Duration selected when the device has none to suggest
-export const DEFAULT_MINUTES = 10;
-
 // How often the status is read while the page is visible, and right after a command
 export const STATUS_REFRESH_MS = 2000;
 export const FAST_STATUS_REFRESH_MS = 500;
@@ -16,31 +10,11 @@ export const initialStatus = () => ({
     timerRunning: false,
     remainingSeconds: 0,
     selectedSeconds: 0,
-    maxMinutes: 60,
     alertsStillOff: false,
     busy: false,
     nvrStatus: 'unknown',
     cameraCount: 0
 });
-
-// Get the durations to pick from: the presets up to the maximum of the device, plus the maximum itself when it is not a preset
-export const buildDurationOptions = maxMinutes => {
-    const maximum = Math.max(1, Math.floor(Number(maxMinutes) || 0));
-    const options = DURATION_PRESETS.filter(minutes => minutes <= maximum);
-    if (!options.includes(maximum)) options.push(maximum);
-    return options;
-};
-
-// Get the duration to select: the one the device used last when it can be picked, otherwise the default (or the closest one)
-export const pickDefaultMinutes = ({ options, selectedSeconds = 0 }) => {
-    const lastMinutes = Math.round(selectedSeconds / 60);
-    if (options.includes(lastMinutes)) return lastMinutes;
-    if (options.includes(DEFAULT_MINUTES)) return DEFAULT_MINUTES;
-    return options[options.length - 1];
-};
-
-// Keep a selected duration inside the options (the maximum of the device can change)
-export const clampMinutes = ({ options, minutes }) => options.includes(minutes) ? minutes : pickDefaultMinutes({ options });
 
 // Show a number of seconds as minutes and seconds, like the countdown of the LCD (12:34)
 export const formatCountdown = seconds => {

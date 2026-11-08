@@ -37,7 +37,7 @@ namespace {
 		printLogfln("NVR login changed from the web app: %s", settings.host);
 
 		// Check the new login (skipped if another command is waiting: the web app can test it again)
-		submitRemoteCommand({ RemoteCommandType::TestNvr, 0 });
+		submitRemoteCommand({ RemoteCommandType::TestNvr });
 
 		// Answer with the saved login
 		JsonDocument nvr = buildNvrData();

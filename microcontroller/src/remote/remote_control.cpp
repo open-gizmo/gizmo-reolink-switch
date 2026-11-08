@@ -4,7 +4,7 @@
 
 namespace {
 	// The waiting command and the published state (shared by the main loop and the web server task, both small enough for a spinlock)
-	RemoteCommand pendingCommand = { RemoteCommandType::None, 0 };
+	RemoteCommand pendingCommand = { RemoteCommandType::None };
 	SwitchStatus publishedStatus = { false, 0, 0, false, true, NvrStatus::Unknown, 0 };
 	portMUX_TYPE remoteMux = portMUX_INITIALIZER_UNLOCKED;
 }
@@ -24,7 +24,7 @@ bool submitRemoteCommand(const RemoteCommand &command) {
 RemoteCommand takeRemoteCommand() {
 	portENTER_CRITICAL(&remoteMux);
 	const RemoteCommand command = pendingCommand;
-	pendingCommand = { RemoteCommandType::None, 0 };
+	pendingCommand = { RemoteCommandType::None };
 	portEXIT_CRITICAL(&remoteMux);
 	return command;
 }

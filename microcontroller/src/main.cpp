@@ -35,6 +35,12 @@ namespace {
 	bool isCancelHintShown = false;
 	uint32_t cancelHintShownAtMs = 0;
 
+	// Factory reset with the BOOT button: the countdown while it's held, and the refusal while cameras are muted
+	bool isFactoryResetHeld = false;
+	uint32_t factoryResetRemainingMs = 0;
+	bool isFactoryResetRefusalShown = false;
+	uint32_t factoryResetRefusalShownAtMs = 0;
+
 	// Check whether the cancel hint should still be on screen
 	bool isCancelHintVisible() {
 		if (isCancelHintShown && millis() - cancelHintShownAtMs >= config::SHOW_DISPLAY_MESSAGE_MS) {
@@ -55,6 +61,20 @@ namespace {
 
 		// Format the remaining time for display
 		printLogf("%s\n", getMenuDisplayText());
+
+		// While the BOOT button is held for a factory reset, count down (releasing it stops)
+		if (isFactoryResetHeld) {
+			char countdownLine[sizeof("Reset in 4294967s")] = { 0 }; // Fits any value (the LCD crops to its width; it never goes above 10)
+			snprintf(countdownLine, sizeof(countdownLine), "Reset in %lus", (unsigned long)((factoryResetRemainingMs + 999) / 1000));
+			displayShowScreen(countdownLine, "Release to stop");
+			return;
+		}
+
+		// For a moment after a refused factory reset, say why (the muted cameras must be restored first, with the saved login)
+		if (isFactoryResetRefusalShown && millis() - factoryResetRefusalShownAtMs < config::SHOW_DISPLAY_MESSAGE_MS) {
+			displayShowScreen("Can't reset now", isTimerRunning() ? "Stop timer first" : "Alerts still off");
+			return;
+		}
 
 		// Explain how to cancel for a moment after a short press (it doesn't change a running timer)
 		if (isTimerRunning() && isCancelHintVisible()) {
@@ -276,28 +296,6 @@ namespace {
 	// Run a command from the web app, through the same steps as the button
 	void handleRemoteCommand(const RemoteCommand &command) {
 		switch (command.type) {
-			// Select the duration and start the timer
-			case RemoteCommandType::StartQuietMode:
-				if (!isTimerRunning()) {
-					handleMenuEvent(setSelectedDuration(command.durationSeconds));
-					handleMenuEvent(activateOrCancelTimer());
-				}
-				break;
-
-			// Cancel the running timer
-			case RemoteCommandType::CancelQuietMode:
-				if (isTimerRunning()) {
-					handleMenuEvent(activateOrCancelTimer());
-				}
-				break;
-
-			// Retry restoring the alerts that are still off
-			case RemoteCommandType::RetryRestore:
-				if (!isTimerRunning() && hasPendingReolinkRestore()) {
-					restoreAlerts("Welcome Back");
-				}
-				break;
-
 			// Check the NVR login
 			case RemoteCommandType::TestNvr:
 				publishStatus(true);
@@ -310,6 +308,49 @@ namespace {
 			case RemoteCommandType::None:
 			default:
 				break;
+		}
+	}
+
+	/******************************** Factory reset ********************************/
+
+	// Show the time left while the BOOT button is held
+	void handleFactoryResetHold(unsigned long remainingMs) {
+		isFactoryResetHeld = true;
+		factoryResetRemainingMs = remainingMs;
+		printMenuStatus();
+	}
+
+	// Go back to the normal screen when the button is released too early
+	void handleFactoryResetCancel() {
+		isFactoryResetHeld = false;
+		printMenuStatus();
+	}
+
+	// Only reset with no camera muted: the saved login is what restores them
+	bool canFactoryReset() {
+		return !isTimerRunning() && !hasPendingReolinkRestore();
+	}
+
+	// Say why the reset was refused
+	void handleFactoryResetRefused() {
+		isFactoryResetHeld = false;
+		isFactoryResetRefusalShown = true;
+		factoryResetRefusalShownAtMs = millis();
+		printMenuStatus();
+	}
+
+	// Forget the NVR login (gizmo-common forgets the Wi-Fi, then restarts into the setup hotspot)
+	void clearSwitchSettings() {
+		updateNvrSettings(NvrSettings {});
+		isFactoryResetHeld = false;
+		displayShowScreen("Factory reset", "Restarting...");
+	}
+
+	// Go back to the normal screen once the refusal has been shown
+	void manageFactoryResetScreen() {
+		if (isFactoryResetRefusalShown && millis() - factoryResetRefusalShownAtMs >= config::SHOW_DISPLAY_MESSAGE_MS) {
+			isFactoryResetRefusalShown = false;
+			printMenuStatus();
 		}
 	}
 
@@ -385,6 +426,15 @@ void setup() {
 	setupServer();
 	printLogln("Web app ready!");
 
+	// Factory reset: hold the BOOT button for 10 s (refused while cameras are muted)
+	gizmo::FactoryResetOptions resetOptions;
+	resetOptions.clearSettings = clearSwitchSettings;
+	resetOptions.canReset = canFactoryReset;
+	resetOptions.onHold = handleFactoryResetHold;
+	resetOptions.onCancel = handleFactoryResetCancel;
+	resetOptions.onRefused = handleFactoryResetRefused;
+	gizmo::setupFactoryReset(resetOptions);
+
 	// Init menu
 	setupMenu();
 	printLogln("Menu initialized!");
@@ -403,7 +453,8 @@ void setup() {
 void loop() {
 	// Keep the Wi-Fi connection alive, and restart when the web app asks
 	manageWiFiConnection();
-	gizmo::manageDevice();
+	gizmo::manageDevice(); // Also watches the BOOT button for a factory reset
+	manageFactoryResetScreen();
 
 	// Apply a changed NVR login, and redraw the setup steps when they change
 	manageNvrLogin();

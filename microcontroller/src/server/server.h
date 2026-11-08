@@ -16,7 +16,6 @@ extern AsyncWebServer server;
 
 // Web server routes (the Wi-Fi setup and device routes are registered by gizmo-common)
 void setupStatusGetRoute();
-void setupQuietModePostRoute();
 void setupNvrGetRoute();
 void setupNvrPostRoute();
 void setupNvrTestPostRoute();

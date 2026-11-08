@@ -18,7 +18,7 @@ void setupNvrTestPostRoute() {
 		}
 
 		// Hand the test to the main loop
-		if (getSwitchStatus().isBusy || !submitRemoteCommand({ RemoteCommandType::TestNvr, 0 })) {
+		if (getSwitchStatus().isBusy || !submitRemoteCommand({ RemoteCommandType::TestNvr })) {
 			sendErrorResponse(request, 409, "device_busy", "device_busy");
 			return;
 		}

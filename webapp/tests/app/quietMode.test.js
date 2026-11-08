@@ -1,63 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildDurationOptions, clampMinutes, computeElapsedShare, computeRemainingSeconds, DEFAULT_MINUTES, FAST_STATUS_REFRESH_MS, formatCountdown, getHomeState, getNvrStatusDetails, getStatusRefreshInterval, hasNvrProblem, initialStatus, isMuted, pickDefaultMinutes, STATUS_REFRESH_MS } from '~/composables/useQuietMode.js';
-import { buildNvrBody, findInvalidNvrField } from '~/composables/useNvrForm.js';
-
-// The chips of the duration picker
-describe('buildDurationOptions', () => {
-    // The device allows up to an hour: every preset is there
-    it('offers every preset up to 60 minutes', () => {
-        expect(buildDurationOptions(60)).toEqual([1, 2, 3, 5, 10, 15, 30, 45, 60]);
-    });
-
-    // A device with a lower maximum must not offer what it would refuse
-    it('leaves out the presets above the maximum of the device', () => {
-        expect(buildDurationOptions(20)).toEqual([1, 2, 3, 5, 10, 15, 20]);
-        expect(buildDurationOptions(5)).toEqual([1, 2, 3, 5]);
-        expect(buildDurationOptions(1)).toEqual([1]);
-    });
-
-    // A maximum that is not a preset is still reachable
-    it('adds the maximum when it is not a preset', () => {
-        expect(buildDurationOptions(90)).toEqual([1, 2, 3, 5, 10, 15, 30, 45, 60, 90]);
-    });
-
-    // A missing maximum never leaves the picker empty
-    it('keeps at least one minute for a missing maximum', () => {
-        expect(buildDurationOptions(undefined)).toEqual([1]);
-        expect(buildDurationOptions(0)).toEqual([1]);
-    });
-});
-
-// The duration selected when the page opens
-describe('pickDefaultMinutes', () => {
-    const options = buildDurationOptions(60);
-
-    // The last duration used on the device is the most likely one
-    it('starts from the duration the device used last', () => {
-        expect(pickDefaultMinutes({ options, selectedSeconds: 30 * 60 })).toBe(30);
-    });
-
-    // A device that never ran a timer has no suggestion
-    it('falls back to the default', () => {
-        expect(pickDefaultMinutes({ options, selectedSeconds: 0 })).toBe(DEFAULT_MINUTES);
-    });
-
-    // A duration the picker doesn't offer is not selected
-    it('ignores a duration that is not an option', () => {
-        expect(pickDefaultMinutes({ options, selectedSeconds: 7 * 60 })).toBe(DEFAULT_MINUTES);
-    });
-
-    // A low maximum has no default: the longest option is used
-    it('uses the longest option when the default is above the maximum', () => {
-        expect(pickDefaultMinutes({ options: buildDurationOptions(5), selectedSeconds: 0 })).toBe(5);
-    });
-
-    // The maximum of the device can drop while the page is open
-    it('brings a selection above the new maximum back inside the options', () => {
-        expect(clampMinutes({ options: buildDurationOptions(15), minutes: 45 })).toBe(10);
-        expect(clampMinutes({ options, minutes: 45 })).toBe(45);
-    });
-});
+import { computeElapsedShare, computeRemainingSeconds, FAST_STATUS_REFRESH_MS, formatCountdown, getHomeState, getNvrStatusDetails, getStatusRefreshInterval, hasNvrProblem, initialStatus, isMuted, STATUS_REFRESH_MS } from '~/composables/useQuietMode.js';
+import { buildNvrBody, findInvalidNvrField, hasNvrLoginChanged } from '~/composables/useNvrForm.js';
 
 // The countdown shown on the page
 describe('formatCountdown', () => {
@@ -228,5 +171,22 @@ describe('findInvalidNvrField', () => {
     it('builds the body without the spaces around the address and the username', () => {
         expect(buildNvrBody({ host: ' 192.168.1.10 ', username: ' admin ', password: ' p ' })).toEqual({ host: '192.168.1.10', username: 'admin', password: ' p ' });
         expect(buildNvrBody({ host: 'a', username: 'b', password: undefined })).toEqual({ host: 'a', username: 'b', password: '' });
+    });
+});
+
+// Whether the form changes the NVR the saved password was entered for
+describe('hasNvrLoginChanged', () => {
+    const saved = { savedHost: '192.168.1.10', savedUsername: 'admin' };
+
+    // The same login, even typed with spaces, a scheme or slashes (the device removes them)
+    it('sees no change in the same login', () => {
+        expect(hasNvrLoginChanged({ host: '192.168.1.10', username: 'admin', ...saved })).toBe(false);
+        expect(hasNvrLoginChanged({ host: ' http://192.168.1.10/ ', username: ' admin ', ...saved })).toBe(false);
+    });
+
+    // A new address or a new username is a change
+    it('sees a change in the address or in the username', () => {
+        expect(hasNvrLoginChanged({ host: '192.168.1.11', username: 'admin', ...saved })).toBe(true);
+        expect(hasNvrLoginChanged({ host: '192.168.1.10', username: 'root', ...saved })).toBe(true);
     });
 });

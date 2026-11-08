@@ -21,11 +21,7 @@
     },
     "api": {
         "backendErrors": {
-            "invalid_quiet_mode_field": "Il dispositivo non ha accettato la durata. Scegli un tempo tra 1 minuto e il massimo, poi riprova.",
             "device_busy": "Il dispositivo è occupato con altro. Aspetta qualche secondo e riprova.",
-            "timer_running": "La modalità silenziosa è già attiva. Annullala prima se vuoi riavviarla.",
-            "timer_not_running": "La modalità silenziosa non è attiva, quindi non c'è nulla da annullare.",
-            "nothing_to_restore": "Gli avvisi sono già attivi, quindi non c'è nulla da riattivare.",
             "nvr_not_configured": "L'NVR non è ancora configurato. Inserisci prima indirizzo, nome utente e password nella pagina NVR.",
             "invalid_nvr_field": "Il dispositivo non ha accettato l'indirizzo, il nome utente o la password dell'NVR. Controllali e riprova. L'indirizzo e la password possono avere fino a 64 caratteri, il nome utente fino a 32.",
             "nvr_change_while_muted": "L'accesso all'NVR non si può cambiare mentre la modalità silenziosa è attiva o gli avvisi sono ancora spenti. Riattiva prima gli avvisi, poi riprova.",
@@ -50,24 +46,9 @@
                 }
             },
             "busy": "Il dispositivo sta lavorando, un attimo...",
-            "duration": {
-                "title": "Per quanto tempo?",
-                "description": "Scegli per quanto tempo restano spente le notifiche e la registrazione.",
-                "label": "Durata della modalità silenziosa",
-                "chip": "{minutes} min"
-            },
-            "startAction": "Avvia la modalità silenziosa per {minutes} min",
-            "cancelAction": "Annulla la modalità silenziosa",
-            "cancelDialog": {
-                "title": "Riattivare gli avvisi?",
-                "description": "La modalità silenziosa finirà subito e le telecamere torneranno a notificare e registrare.",
-                "confirmAction": "Sì, riattiva gli avvisi",
-                "keepAction": "Mantieni la modalità silenziosa"
-            },
             "alertsOff": {
                 "title": "Le telecamere potrebbero non avvisarti",
-                "description": "Il dispositivo non è riuscito a riattivare gli avvisi. Controlla che l'NVR sia acceso e raggiungibile, poi riprova.",
-                "retryAction": "Riprova"
+                "description": "Il dispositivo non è riuscito a riattivare gli avvisi. Controlla che l'NVR sia acceso e raggiungibile, poi tieni premuto il pulsante sull'interruttore per riprovare."
             },
             "setup": {
                 "title": "Prima configura l'NVR",
@@ -75,7 +56,18 @@
                 "action": "Configura l'NVR"
             },
             "nvrProblemLink": "Vai alla pagina NVR.",
-            "commandError": "Il dispositivo non è riuscito a eseguire il comando. Riprova."
+            "buttonHelp": {
+                "title": "Sull'interruttore",
+                "hint": "Questa pagina mostra solo lo stato. La modalità silenziosa parte e si ferma solo con il pulsante sull'interruttore.",
+                "shortPress": {
+                    "label": "Pressione breve",
+                    "description": "Scegli per quanto tempo dura la modalità silenziosa."
+                },
+                "longPress": {
+                    "label": "Tieni premuto il pulsante",
+                    "description": "Avvia la modalità silenziosa, o annullala mentre è attiva."
+                }
+            }
         },
         "nvr": {
             "title": "NVR",
@@ -97,7 +89,9 @@
                 "note": "La password di quell'account dell'NVR.",
                 "savedNote": "Una password è già salvata. Lascia vuoto per tenerla, oppure scrivine una nuova.",
                 "show": "Mostra la password",
-                "hide": "Nascondi la password"
+                "hide": "Nascondi la password",
+                "clearedNote": "La password salvata è stata cancellata perché l'indirizzo o il nome utente sono cambiati. Scrivi la password di questo NVR.",
+                "clearedPlaceholder": "Password del nuovo NVR"
             },
             "saveAction": "Salva",
             "saveSuccess": "L'accesso è stato salvato. Il dispositivo lo sta verificando.",
@@ -145,6 +139,13 @@
                     "description": "L'NVR blocca l'account dopo alcune password sbagliate, quindi il dispositivo aspetta 10 minuti prima di riprovare. Controlla nome utente e password e salvali di nuovo, oppure aspetta 10 minuti.",
                     "badge": "In pausa"
                 }
+            },
+            "testError": "Il dispositivo non è riuscito a eseguire il test. Riprova.",
+            "changeDialog": {
+                "title": "Cambiare l'NVR?",
+                "description": "La password salvata funziona solo per l'NVR per cui è stata inserita. Cambiando l'indirizzo o il nome utente viene cancellata: dovrai scrivere di nuovo la password.",
+                "confirmAction": "Cambia e cancella la password",
+                "keepAction": "Mantieni l'NVR salvato"
             }
         },
         "settings": {

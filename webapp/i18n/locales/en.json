@@ -21,11 +21,7 @@
     },
     "api": {
         "backendErrors": {
-            "invalid_quiet_mode_field": "The device didn't accept the duration. Choose a time between 1 minute and the maximum, then try again.",
             "device_busy": "The device is busy with something else. Wait a few seconds and try again.",
-            "timer_running": "Quiet mode is already on. Cancel it first if you want to start it again.",
-            "timer_not_running": "Quiet mode is not on, so there is nothing to cancel.",
-            "nothing_to_restore": "The alerts are already on, so there is nothing to turn back on.",
             "nvr_not_configured": "The NVR is not set up yet. Enter its address, username and password in the NVR page first.",
             "invalid_nvr_field": "The device didn't accept the NVR address, username or password. Check them and try again. The address and the password can be up to 64 characters, the username up to 32.",
             "nvr_change_while_muted": "The NVR login can't change while quiet mode is on or the alerts are still off. Turn the alerts back on first, then try again.",
@@ -50,24 +46,9 @@
                 }
             },
             "busy": "The device is working, one moment...",
-            "duration": {
-                "title": "How long?",
-                "description": "Choose how long the notifications and the recording stay off.",
-                "label": "Quiet mode duration",
-                "chip": "{minutes} min"
-            },
-            "startAction": "Start quiet mode for {minutes} min",
-            "cancelAction": "Cancel quiet mode",
-            "cancelDialog": {
-                "title": "Turn the alerts back on?",
-                "description": "Quiet mode will end now, and your cameras will start to notify and record again.",
-                "confirmAction": "Yes, turn alerts on",
-                "keepAction": "Keep quiet mode"
-            },
             "alertsOff": {
                 "title": "Your cameras may not be alerting you",
-                "description": "The device couldn't turn the alerts back on. Check that the NVR is switched on and reachable, then try again.",
-                "retryAction": "Retry"
+                "description": "The device couldn't turn the alerts back on. Check that the NVR is switched on and reachable, then hold the button on the switch to try again."
             },
             "setup": {
                 "title": "Set up your NVR first",
@@ -75,7 +56,18 @@
                 "action": "Set up the NVR"
             },
             "nvrProblemLink": "Check the NVR page.",
-            "commandError": "The device couldn't run the command. Please try again."
+            "buttonHelp": {
+                "title": "On the switch",
+                "hint": "This page only shows the status. The quiet mode starts and stops only with the button on the switch.",
+                "shortPress": {
+                    "label": "Short press",
+                    "description": "Choose how long the quiet mode lasts."
+                },
+                "longPress": {
+                    "label": "Hold the button",
+                    "description": "Start the quiet mode, or cancel it while it is running."
+                }
+            }
         },
         "nvr": {
             "title": "NVR",
@@ -97,7 +89,9 @@
                 "note": "The password of that NVR account.",
                 "savedNote": "A password is saved. Leave this empty to keep it, or type a new one.",
                 "show": "Show password",
-                "hide": "Hide password"
+                "hide": "Hide password",
+                "clearedNote": "The saved password was deleted because the address or the username changed. Type the password of this NVR.",
+                "clearedPlaceholder": "Password of the new NVR"
             },
             "saveAction": "Save",
             "saveSuccess": "The login has been saved. The device is checking it now.",
@@ -145,6 +139,13 @@
                     "description": "The NVR locks the account after a few wrong passwords, so the device waits 10 minutes before it tries again. Check the username and the password and save them again, or just wait 10 minutes.",
                     "badge": "Paused"
                 }
+            },
+            "testError": "The device couldn't run the test. Please try again.",
+            "changeDialog": {
+                "title": "Change the NVR?",
+                "description": "The saved password only works for the NVR it was entered for. Changing the address or the username deletes it: you'll need to type the password again.",
+                "confirmAction": "Change and clear the password",
+                "keepAction": "Keep the saved NVR"
             }
         },
         "settings": {

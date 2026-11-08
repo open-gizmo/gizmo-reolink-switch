@@ -36,7 +36,6 @@ JsonDocument buildNvrData() {
 void setupServer() {
 	gizmo::setupDeviceApi(server, { config::PROJECT_NAME, config::FIRMWARE_VERSION });
 	setupStatusGetRoute();
-	setupQuietModePostRoute();
 	setupNvrGetRoute();
 	setupNvrPostRoute();
 	setupNvrTestPostRoute();
