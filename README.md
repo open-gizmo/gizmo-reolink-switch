@@ -295,6 +295,14 @@ The main shared constants live in [config.h](microcontroller/src/config/config.h
 - Buzzer durations.
 - LCD geometry and address.
 
+### Releasing a new version
+
+Versions follow [semantic versioning](https://semver.org) (`vMAJOR.MINOR.PATCH`), in the `VERSION` file: a bug fix bumps the patch (1.0.1), a new feature that keeps the saved settings bumps the minor (1.1.0), and a change that resets the settings or needs new wiring bumps the major (2.0.0).
+
+1. On `feature`, set the new version in `VERSION` and in `webapp/package.json` (`npm version X.Y.Z --no-git-tag-version` in `webapp/` updates its lockfile too).
+2. Bring `main` up to `feature`.
+3. Run the **Release 📦** workflow by hand (Actions > Release > Run workflow, on `main`). It checks the version is new and matches the web app, runs the web app and native tests, and creates the GitHub Release `vX.Y.Z` with notes from the commits. Every firmware build reads the version from `VERSION` (through `microcontroller/firmware_version.py`) and reports it in `/api/device`, so flash the release from its tag.
+
 <a id="troubleshooting"></a>
 ## 🧰 Troubleshooting
 

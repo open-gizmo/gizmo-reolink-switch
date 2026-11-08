@@ -6,27 +6,92 @@ on:
 jobs:
   release:
     name: Release 📦
+    # Release only from main
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: write
 
     steps:
-      # Generate version code (es. v2023.09.15.1)
-      - name: 🏷️ Generate version
+      # Checkout repository (with tags, to check the version is new)
+      - name: 🚚 Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      # Read the version to release from the VERSION file (semantic versioning: MAJOR.MINOR.PATCH), and stop if it is not new or does not match the web app
+      - name: 🏷️ Read version
         id: version
         run: |
-          echo "DATE=$(date +'%Y.%m.%d')" >> $GITHUB_OUTPUT
-          echo "VERSION=v$(date +'%Y.%m.%d').${{ github.run_number }}" >> $GITHUB_OUTPUT
+          VERSION="v$(tr -d '[:space:]' < VERSION)"
+          if ! echo "$VERSION" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "VERSION must be MAJOR.MINOR.PATCH (for example 1.0.0), not ${VERSION#v}."
+            exit 1
+          fi
+          WEBAPP_VERSION=$(node -p "require('./webapp/package.json').version")
+          if [ "v$WEBAPP_VERSION" != "$VERSION" ]; then
+            echo "webapp/package.json version ($WEBAPP_VERSION) does not match VERSION (${VERSION#v})."
+            exit 1
+          fi
+          if git rev-parse -q --verify "refs/tags/$VERSION" > /dev/null; then
+            echo "$VERSION is already released: bump VERSION (and webapp/package.json) first."
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
 
-      # Create the GitHub release
+      # Set up Node.js
+      - name: 🧰 Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24.21.0'
+          cache: npm
+          cache-dependency-path: webapp/package-lock.json
+
+      # Install dependencies for webapp
+      - name: 📦 Install webapp dependencies
+        working-directory: webapp
+        run: npm ci
+
+      # Set up Python
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # Install PlatformIO
+      - name: ⚙️ Install PlatformIO
+        run: |
+          python -m pip install --upgrade pip
+          pip install platformio==6.2.0
+
+      # The project reads platformio_secrets.ini, which is never committed: the example with its placeholders is enough for the tests
+      - name: 🔑 Placeholder secrets
+        working-directory: microcontroller
+        run: cp platformio_secrets.example.ini platformio_secrets.ini
+
+      # Download the firmware libraries (the webapp tests read the error IDs of gizmo-common)
+      - name: 📥 Install firmware libraries
+        working-directory: microcontroller
+        run: pio pkg install -e xiao_esp32s3
+
+      # Run the webapp tests
+      - name: 🧪 Run webapp tests
+        working-directory: webapp
+        run: npm test
+
+      # Run the native tests
+      - name: 🧪 Run native tests
+        working-directory: microcontroller
+        run: pio test -e native
+
+      # Create the GitHub release, with its notes from the commits since the last one
       - name: 📦 Create Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.VERSION }}
-          name: Release ${{ steps.version.outputs.VERSION }}
+          name: Gizmo Reolink Switch ${{ steps.version.outputs.VERSION }}
+          generate_release_notes: true
           body: |
-            Automated release - ${{ steps.version.outputs.DATE }}
-            
-            Built from commit SHA: ${{ github.sha }}
+            Built from commit ${{ github.sha }}.
           draft: false
           prerelease: false
