@@ -118,7 +118,23 @@ Gizmo Reolink Switch is built around four cooperating parts:
 - VS Code with the PlatformIO IDE extension installed, or PlatformIO Core installed locally.
 - Node.js 24.21 or newer, to build the dashboard.
 
+The last two are only needed to build the firmware yourself.
+
+### 🚀 Easy, no-code option
+
+Use this path if you just want to flash the prebuilt firmware from the website. You do not need VS Code, PlatformIO, or a local build step.
+
+1. **Connect the XIAO ESP32-S3 to a USB port of your computer.**
+
+2. **Open the [Gizmo Reolink Switch](https://opengizmo.dev/projects/gizmo-reolink-switch) project page,** in Chrome or Edge.
+
+3. **Press the "Flash firmware" button in the firmware card, and wait until it completes.** The board restarts into the new firmware by itself, and keeps its saved Wi-Fi and NVR login.
+
+4. **Set up the Wi-Fi and the NVR from your phone,** as in steps 4 and 5 below.
+
 ### 🔧 Initial Setup
+
+To build and flash everything yourself:
 
 1. **Clone the repository.**
 
@@ -303,7 +319,10 @@ Versions follow [semantic versioning](https://semver.org) (`vMAJOR.MINOR.PATCH`)
 
 1. On `feature`, set the new version in `VERSION` and in `webapp/package.json` (`npm version X.Y.Z --no-git-tag-version` in `webapp/` updates its lockfile too).
 2. Bring `main` up to `feature`.
-3. Run the **Release 📦** workflow by hand (Actions > Release > Run workflow, on `main`). It checks the version is new and matches the web app, runs the web app and native tests, and creates the GitHub Release `vX.Y.Z` with notes from the commits. Every firmware build reads the version from `VERSION` (through `microcontroller/firmware_version.py`) and reports it in `/api/device`, so flash the release from its tag.
+3. Run the **Build & Release 📦** workflow by hand (Actions > Build & Release > Run workflow, on `main`). It checks the version is new and matches the web app, runs the tests, builds the web app and the firmware (which reports its version in `/api/device`), and creates the GitHub Release `vX.Y.Z` with the four flash parts and notes from the commits.
+4. The same parts go to Cloudflare R2, with a `manifest.json` that lists each part and its flash address. The flash button on [opengizmo.dev](https://opengizmo.dev/projects/gizmo-reolink-switch) reads that manifest, so it always installs the latest release, and keeps the saved settings. The CDN caches the manifest for 60 seconds only, so the website offers a new release within a minute, with no purge.
+
+The workflow only runs on `main`, and needs these secrets, on the repository or on the open-gizmo organization: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` (an R2 API token limited to the bucket) and `R2_BUCKET`. It checks them first, and stops before releasing anything when one is missing.
 
 <a id="troubleshooting"></a>
 ## 🧰 Troubleshooting
