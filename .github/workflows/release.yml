@@ -64,15 +64,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install platformio==6.2.0
 
-      # The project reads platformio_secrets.ini, which is never committed: the example with its placeholders is enough for the tests
-      - name: 🔑 Placeholder secrets
-        working-directory: microcontroller
-        run: cp platformio_secrets.example.ini platformio_secrets.ini
-
       # Download the firmware libraries (the webapp tests read the error IDs of gizmo-common)
       - name: 📥 Install firmware libraries
         working-directory: microcontroller
-        run: pio pkg install -e xiao_esp32s3
+        run: pio pkg install -e release
 
       # Run the webapp tests
       - name: 🧪 Run webapp tests

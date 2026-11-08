@@ -83,7 +83,7 @@ The device also provides:
 - Muted channels are saved in flash, so the cameras are restored even if the device reboots while they are muted.
 - Friendly 16x2 I2C LCD screens optimized for quick readability, including the setup steps.
 - Buzzer cues for selection, start, countdown warning, completion, and cancellation.
-- Optional development logging controlled through `PIO_DEV_MODE`.
+- A `debug` build profile with the serial log on (off in the released firmware).
 - Native tests for the firmware logic, and Vitest tests for the dashboard.
 
 <a id="architecture"></a>
@@ -110,7 +110,7 @@ Gizmo Reolink Switch is built around four cooperating parts:
 
 ### 📋 Requirements
 
-- Seeed Studio XIAO ESP32-S3, with its FPC antenna (PlatformIO env `xiao_esp32s3`).
+- Seeed Studio XIAO ESP32-S3, with its FPC antenna (PlatformIO board `seeed_xiao_esp32s3`).
 - Reolink NVR reachable on the same network as the ESP32.
 - 1 push button.
 - 1 buzzer.
@@ -147,7 +147,7 @@ For the CLI, from `microcontroller/`:
 pio run --target upload
 ```
 
-No secrets file is needed. Create one from [platformio_secrets.example.ini](microcontroller/platformio_secrets.example.ini), and set `PIO_DEV_MODE=1` in it, only if you want the serial logs while developing (the example keeps them off, as in the released firmware).
+This builds the `release` profile. For the serial log, use `debug` instead (see [Build profiles](#build-profiles)).
 
 4. **Connect the switch to your Wi-Fi.**
 
@@ -275,17 +275,15 @@ The dashboard lives in `webapp/`. It's a Nuxt 4 app on the shared gizmo-common w
 <a id="configuration"></a>
 ## ⚙️ Configuration
 
-### Secrets file
+### Build profiles
 
-Nothing needs to be compiled in: the Wi-Fi and the NVR login are set from the phone and saved on the board. The optional secrets file only turns on the serial logs while developing:
+[platformio.ini](microcontroller/platformio.ini) has the same three profiles as every OpenGizmo firmware:
 
-```ini
-[env:xiao_esp32s3]
-build_flags =
-	-D PIO_DEV_MODE=1
-```
+- `release`, the default: the firmware the release workflow builds and the website flashes, with the serial log off.
+- `debug`: the same firmware with the serial log on, and the ESP32 core's own messages. Flash it with `pio run -e debug --target upload`, then open `pio device monitor`.
+- `native`: the tests of the hardware-free logic, on your computer (`pio test -e native`).
 
-Use [platformio_secrets.example.ini](microcontroller/platformio_secrets.example.ini) as the template. The real file is ignored by git.
+Nothing needs a secrets file: the Wi-Fi and the NVR login are set from the phone and saved on the board.
 
 ### Key runtime settings
 
@@ -318,7 +316,7 @@ Versions follow [semantic versioning](https://semver.org) (`vMAJOR.MINOR.PATCH`)
 - `gizmo-reolink-switch.local` doesn't open: some networks and devices don't support mDNS. Use the IP address the LCD shows, or the one on the dashboard's settings page.
 - `NVR Not Set` / `Use the web app`: no NVR login is saved yet. Open the dashboard and set it on the **NVR** page.
 - The NVR page won't save: the login can't change while cameras are muted (they must be restored by the NVR that muted them). Wait for the timer to end, or cancel it, and retry if alerts are still off.
-- NVR state does not restore: the LCD shows `Alerts Still OFF` and the firmware keeps retrying. Hold the button to retry right away, or enable `PIO_DEV_MODE=1` and inspect the serial logs.
+- NVR state does not restore: the LCD shows `Alerts Still OFF` and the firmware keeps retrying. Hold the button to retry right away, or flash the `debug` profile and read the serial log.
 - `Partly Muted!` after starting the timer: the NVR refused some commands (for example recording on a channel without a disk). The muted settings are still restored at the end, and the refused ones were never changed.
 - `Login Paused` / `Check password`: the NVR refused a login, so the firmware waits 10 minutes before trying again (repeated wrong-password logins can lock the NVR account). Fix the username or password on the dashboard's **NVR** page (saving a new login ends the pause), or wait.
 

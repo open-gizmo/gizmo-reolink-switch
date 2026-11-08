@@ -13,7 +13,7 @@
 npm test  # Vitest
 ```
 
-The locales test also checks that every error ID the mock device sends has a translation. When gizmo-common is downloaded (run `pio pkg install -e xiao_esp32s3` in `microcontroller/`), it also reads the sources of `microcontroller/` and of gizmo-common to check the error IDs of the firmware; without it that check is skipped.
+The locales test also checks that every error ID the mock device sends has a translation. When gizmo-common is downloaded (run `pio pkg install -e release` in `microcontroller/`), it also reads the sources of `microcontroller/` and of gizmo-common to check the error IDs of the firmware; without it that check is skipped.
 
 ## How the tests are built
 
