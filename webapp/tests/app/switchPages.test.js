@@ -4,7 +4,7 @@ import { flushPromises } from '@vue/test-utils';
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime';
 import HomePage from '~/pages/index.vue';
 import NvrPage from '~/pages/nvr.vue';
-import SettingsPage from '~/pages/settings.vue';
+import DevicePage from '~/pages/device.vue';
 import { initialStatus } from '~/composables/useQuietMode.js';
 import { loadNvr, loadStatus, refreshStatus, runNvrTest } from '~/composables/useSwitchState.js';
 import { useGlobalStore } from '~/composables/stores/useGlobalStore.js';
@@ -607,11 +607,11 @@ describe('NVR page', () => {
     });
 });
 
-// Settings page: the device card of the layer (the language is picked in the top bar, like in every OpenGizmo app)
-describe('settings page', () => {
+// Device page: the device card of the layer (the language is picked in the top bar, like in every OpenGizmo app)
+describe('device page', () => {
     // The card of the layer shows the device, and there is no language row
     it('shows the device card and no language row', async () => {
-        const wrapper = await mountPage(SettingsPage);
+        const wrapper = await mountPage(DevicePage);
         await vi.waitFor(() => expect(wrapper.text()).toContain('gizmo-reolink-switch.local'));
         expect(wrapper.text()).toContain('Restart');
         expect(wrapper.text()).not.toContain('Language');

@@ -70,7 +70,7 @@ export default defineNuxtConfig({
             routes: [
                 '/',
                 '/nvr',
-                '/settings'
+                '/device'
             ]
         }
     },

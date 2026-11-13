@@ -14,8 +14,8 @@
             "label": "NVR",
             "description": "Address and login of the Reolink NVR"
         },
-        "settings": {
-            "label": "Settings",
+        "device": {
+            "label": "Device",
             "description": "Device info, network and restart"
         }
     },
@@ -148,8 +148,8 @@
                 "keepAction": "Keep the saved NVR"
             }
         },
-        "settings": {
-            "title": "Settings"
+        "device": {
+            "title": "Device"
         }
     }
 }
