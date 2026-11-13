@@ -607,14 +607,14 @@ describe('NVR page', () => {
     });
 });
 
-// Settings page: the language and the device card of the layer
+// Settings page: the device card of the layer (the language is picked in the top bar, like in every OpenGizmo app)
 describe('settings page', () => {
-    // The language row shows the one in use, and the card of the layer shows the device
-    it('shows the language and the device card', async () => {
+    // The card of the layer shows the device, and there is no language row
+    it('shows the device card and no language row', async () => {
         const wrapper = await mountPage(SettingsPage);
-        expect(wrapper.text()).toContain('English');
         await vi.waitFor(() => expect(wrapper.text()).toContain('gizmo-reolink-switch.local'));
         expect(wrapper.text()).toContain('Restart');
+        expect(wrapper.text()).not.toContain('Language');
     });
 
     // A refreshed status is stamped, so the countdown has a start

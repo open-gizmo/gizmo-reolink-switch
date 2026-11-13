@@ -16,7 +16,7 @@
         },
         "settings": {
             "label": "Settings",
-            "description": "Language and device info"
+            "description": "Device info, network and restart"
         }
     },
     "api": {
@@ -149,12 +149,7 @@
             }
         },
         "settings": {
-            "title": "Settings",
-            "languageTitle": "Language",
-            "language": {
-                "label": "Language",
-                "note": "The language of this web interface."
-            }
+            "title": "Settings"
         }
     }
 }

@@ -16,7 +16,7 @@
         },
         "settings": {
             "label": "Impostazioni",
-            "description": "Lingua e informazioni sul dispositivo"
+            "description": "Info del dispositivo, rete e riavvio"
         }
     },
     "api": {
@@ -149,12 +149,7 @@
             }
         },
         "settings": {
-            "title": "Impostazioni",
-            "languageTitle": "Lingua",
-            "language": {
-                "label": "Lingua",
-                "note": "La lingua di questa interfaccia web."
-            }
+            "title": "Impostazioni"
         }
     }
 }
