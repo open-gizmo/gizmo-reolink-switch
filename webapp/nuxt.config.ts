@@ -69,6 +69,7 @@ export default defineNuxtConfig({
         prerender: {
             routes: [
                 '/',
+                '/switch',
                 '/nvr',
                 '/device'
             ]

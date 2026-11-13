@@ -68,7 +68,7 @@ The device also provides:
 	<table>
 		<tr>
 			<td align="center" valign="top">
-				<img src="docs/screenshot-home.png" alt="Home screen" width="180">
+				<img src="docs/screenshot-switch.png" alt="Switch screen" width="180">
 			</td>
 			<td align="center" valign="top">
 				<img src="docs/screenshot-nvr.png" alt="NVR screen" width="180">
@@ -79,7 +79,7 @@ The device also provides:
 		</tr>
 	</table>
 	<p>
-		<sub>Home, NVR, and WiFi setup screens (the web app's development server, with a mock switch)</sub>
+		<sub>Switch, NVR, and WiFi setup screens (the web app's development server, with a mock switch)</sub>
 	</p>
 </div>
 
@@ -152,7 +152,7 @@ Use this path if you just want to flash the prebuilt firmware from the website. 
 
 6. **Leave home quietly.**
 
-	Press the button to choose the time and hold it to start. The dashboard's home page shows the countdown.
+	Press the button to choose the time and hold it to start. The dashboard's **Switch** page shows the countdown.
 
 ### 🛠️ More technical option
 
@@ -298,7 +298,7 @@ They live in [webapp/tests/](webapp/tests/), and [webapp/tests/README.md](webapp
 
 The dashboard lives in `webapp/`. It's a Nuxt 4 app on the shared gizmo-common web layer, like the other OpenGizmo web apps:
 
-- **Home**: the state of the alerts, the countdown, and what the button does. It only shows the status: the quiet mode starts and stops with the button on the switch.
+- **Switch**: the state of the alerts, the countdown, and what the button does. It only shows the status: the quiet mode starts and stops with the button on the switch.
 - **NVR**: the address and login of the NVR, and the connection check.
 - **Device**: the device details, with restart and forget network.
 - **WiFi**: change the network, and the setup page the hotspot opens.
@@ -311,7 +311,7 @@ The web app splits UI responsibilities between the shared packages and the app i
 
 - `@brumaombra/ui-vintage` provides the reusable UI system.
 - The gizmo-common web layer provides the dashboard layout, the Wi-Fi pages, the device card, and the mock device for the Wi-Fi and device routes.
-- `webapp/app/pages/index.vue` is the home page, `webapp/app/pages/nvr.vue` the NVR page, `webapp/app/pages/device.vue` holds the device card, and `webapp/app/app.config.ts` sets the name, logo and navigation for the layer.
+- `webapp/app/pages/switch.vue` is the switch page, `webapp/app/pages/nvr.vue` the NVR page, `webapp/app/pages/device.vue` holds the device card, and `webapp/app/app.config.ts` sets the name, logo and navigation for the layer.
 - `webapp/app/assets/css/main.css` imports the shared library and layer stylesheets.
 - `webapp/app/composables/` keeps the switch API calls (`useSwitchApi.js`), the status polling and the quiet-mode state local to the app.
 

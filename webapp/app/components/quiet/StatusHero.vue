@@ -38,27 +38,27 @@ const elapsedShare = computed(() => computeElapsedShare({ remainingSeconds: prop
 
         <!-- Alerts on -->
         <template v-if="props.state === 'idle'">
-            <h2 class="mt-4 text-2xl font-bold text-foreground">{{ t('pages.home.state.idle.title') }}</h2>
-            <p class="mt-1 text-sm text-muted-foreground">{{ t('pages.home.state.idle.description') }}</p>
+            <h2 class="mt-4 text-2xl font-bold text-foreground">{{ t('pages.switch.state.idle.title') }}</h2>
+            <p class="mt-1 text-sm text-muted-foreground">{{ t('pages.switch.state.idle.description') }}</p>
         </template>
 
         <!-- Quiet mode with the live countdown -->
         <template v-else-if="props.state === 'running'">
-            <h2 class="mt-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">{{ t('pages.home.state.running.title') }}</h2>
+            <h2 class="mt-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">{{ t('pages.switch.state.running.title') }}</h2>
             <p class="mt-1 text-5xl font-bold tabular-nums text-foreground" data-testid="countdown">{{ countdown }}</p>
-            <p class="mt-1 text-sm text-muted-foreground">{{ t('pages.home.state.running.description') }}</p>
-            <div class="mt-4 h-2 overflow-hidden rounded-full bg-primary/20" role="progressbar" :aria-valuenow="Math.round(elapsedShare * 100)" aria-valuemin="0" aria-valuemax="100" :aria-label="t('pages.home.state.running.title')">
+            <p class="mt-1 text-sm text-muted-foreground">{{ t('pages.switch.state.running.description') }}</p>
+            <div class="mt-4 h-2 overflow-hidden rounded-full bg-primary/20" role="progressbar" :aria-valuenow="Math.round(elapsedShare * 100)" aria-valuemin="0" aria-valuemax="100" :aria-label="t('pages.switch.state.running.title')">
                 <div class="h-full rounded-full bg-primary transition-[width] duration-500" :style="{ width: `${Math.round(elapsedShare * 100)}%` }" />
             </div>
         </template>
 
         <!-- Alerts still off -->
         <template v-else>
-            <h2 class="mt-4 text-2xl font-bold text-foreground">{{ t('pages.home.state.alertsOff.title') }}</h2>
-            <p class="mt-1 text-sm text-muted-foreground">{{ t('pages.home.state.alertsOff.description') }}</p>
+            <h2 class="mt-4 text-2xl font-bold text-foreground">{{ t('pages.switch.state.alertsOff.title') }}</h2>
+            <p class="mt-1 text-sm text-muted-foreground">{{ t('pages.switch.state.alertsOff.description') }}</p>
         </template>
 
         <!-- The device is working on a command -->
-        <p v-if="props.isBusy" class="mt-3 text-xs font-semibold text-muted-foreground" data-testid="busy-note">{{ t('pages.home.busy') }}</p>
+        <p v-if="props.isBusy" class="mt-3 text-xs font-semibold text-muted-foreground" data-testid="busy-note">{{ t('pages.switch.busy') }}</p>
     </section>
 </template>

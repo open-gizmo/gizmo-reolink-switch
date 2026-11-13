@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readBody, setResponseStatus } from 'h3';
 import { flushPromises } from '@vue/test-utils';
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime';
-import HomePage from '~/pages/index.vue';
+import SwitchPage from '~/pages/switch.vue';
 import NvrPage from '~/pages/nvr.vue';
 import DevicePage from '~/pages/device.vue';
 import { initialStatus } from '~/composables/useQuietMode.js';
@@ -194,8 +194,8 @@ describe('loadStatus', () => {
     });
 });
 
-// Home page: the state, read-only (the quiet mode is controlled with the button of the switch)
-describe('home page', () => {
+// Switch page: the state, read-only (the quiet mode is controlled with the button of the switch)
+describe('switch page', () => {
     // Every control the page used to have to command the quiet mode
     const COMMAND_SELECTORS = ['start-button', 'cancel-button', 'retry-button', 'cancel-confirm-button'];
 
@@ -208,7 +208,7 @@ describe('home page', () => {
 
     // While the status is loading the page shows nothing of the device
     it('waits for the status before showing the state', async () => {
-        const wrapper = await mountPage(HomePage);
+        const wrapper = await mountPage(SwitchPage);
         expect(wrapper.find('[data-testid="status-hero"]').exists()).toBe(false);
         expect(wrapper.text()).toContain('Reading the device');
     });
@@ -216,7 +216,7 @@ describe('home page', () => {
     // A device that doesn't answer gets a retry, not a page of defaults
     it('offers to try again when the status failed to load', async () => {
         isDeviceAvailable = false;
-        const wrapper = await mountPage(HomePage);
+        const wrapper = await mountPage(SwitchPage);
         await vi.waitFor(() => expect(wrapper.text()).toContain('Couldn\'t read the device'));
         expect(wrapper.find('[data-testid="status-hero"]').exists()).toBe(false);
 
@@ -228,7 +228,7 @@ describe('home page', () => {
 
     // The first thing the page says is that the alerts are on, and that only the button of the switch controls the quiet mode
     it('shows that the alerts are on, with no control and the explanation of the button', async () => {
-        const wrapper = await mountLoaded(HomePage);
+        const wrapper = await mountLoaded(SwitchPage);
         expect(wrapper.find('[data-testid="status-hero"]').text()).toContain('Alerts on');
         expectNoCommands(wrapper);
         const help = wrapper.find('[data-testid="button-help"]').text();
@@ -243,7 +243,7 @@ describe('home page', () => {
     // The countdown shows the minutes and seconds the device sent, with nothing to cancel it
     it('shows the time left of a running timer, without a cancel button', async () => {
         deviceStatus = buildStatus({ timerRunning: true, remainingSeconds: 754, selectedSeconds: 900 });
-        const wrapper = await mountLoaded(HomePage);
+        const wrapper = await mountLoaded(SwitchPage);
         expect(wrapper.find('[data-testid="countdown"]').text()).toMatch(/^12:3[345]$/);
         expect(wrapper.find('[data-testid="status-hero"]').text()).toContain('left before the alerts come back');
         expectNoCommands(wrapper);
@@ -253,7 +253,7 @@ describe('home page', () => {
     // The countdown used to move only with each read of the status, every 2 seconds
     it('counts down every second between two reads', async () => {
         deviceStatus = buildStatus({ timerRunning: true, remainingSeconds: 600, selectedSeconds: 900 });
-        const wrapper = await mountLoaded(HomePage);
+        const wrapper = await mountLoaded(SwitchPage);
         const first = wrapper.find('[data-testid="countdown"]').text();
         await vi.waitFor(() => expect(wrapper.find('[data-testid="countdown"]').text()).not.toBe(first), { timeout: 2500, interval: 100 });
     });
@@ -261,7 +261,7 @@ describe('home page', () => {
     // The way out of the warning is the button of the switch, not the page
     it('warns when the alerts are still off, and says to hold the button to try again', async () => {
         deviceStatus = buildStatus({ alertsStillOff: true });
-        const wrapper = await mountLoaded(HomePage);
+        const wrapper = await mountLoaded(SwitchPage);
         expect(wrapper.find('[data-testid="status-hero"]').text()).toContain('Alerts still off');
         const warning = wrapper.find('[data-testid="alerts-off-warning"]').text();
         expect(warning).toContain('Your cameras may not be alerting you');
@@ -272,7 +272,7 @@ describe('home page', () => {
     // The state follows the device: the page shows the end of the quiet mode by itself
     it('goes back to alerts on when the device ends the quiet mode', async () => {
         deviceStatus = buildStatus({ timerRunning: true, remainingSeconds: 5, selectedSeconds: 60 });
-        const wrapper = await mountLoaded(HomePage);
+        const wrapper = await mountLoaded(SwitchPage);
         expect(wrapper.find('[data-testid="status-hero"]').text()).toContain('Quiet mode');
         deviceStatus = buildStatus();
         await vi.waitFor(() => expect(wrapper.find('[data-testid="status-hero"]').text()).toContain('Alerts on'), { timeout: 4000, interval: 100 });
@@ -282,14 +282,14 @@ describe('home page', () => {
     // The device works on one thing at a time
     it('shows the busy state while the device works', async () => {
         deviceStatus = buildStatus({ busy: true });
-        const wrapper = await mountLoaded(HomePage);
+        const wrapper = await mountLoaded(SwitchPage);
         expect(wrapper.find('[data-testid="busy-note"]').text()).toContain('The device is working');
     });
 
     // Without an NVR there is nothing to mute: the setup card replaces the page
     it('shows the setup card with a link to the NVR page when the NVR is not set up', async () => {
         deviceStatus = buildStatus({ nvrStatus: 'not_configured', cameraCount: 0 });
-        const wrapper = await mountLoaded(HomePage);
+        const wrapper = await mountLoaded(SwitchPage);
         expect(wrapper.find('[data-testid="setup-card"]').text()).toContain('Set up your NVR first');
         expect(wrapper.find('a[href="/nvr"]').exists()).toBe(true);
         expect(wrapper.find('[data-testid="button-help"]').exists()).toBe(false);
@@ -303,7 +303,7 @@ describe('home page', () => {
         ['login_paused', 'waits 10 minutes']
     ])('points out the NVR problem %s', async (nvrStatus, text) => {
         deviceStatus = buildStatus({ nvrStatus, cameraCount: 0 });
-        const wrapper = await mountLoaded(HomePage);
+        const wrapper = await mountLoaded(SwitchPage);
         expect(wrapper.find('[data-testid="nvr-problem"]').text()).toContain(text);
         expect(wrapper.find('[data-testid="nvr-problem"] a[href="/nvr"]').exists()).toBe(true);
         expect(wrapper.find('[data-testid="button-help"]').exists()).toBe(true);
@@ -311,7 +311,7 @@ describe('home page', () => {
 
     // The status is polled while the page is open, and no more when it is left
     it('reads the status while mounted and stops when unmounted', async () => {
-        const wrapper = await mountLoaded(HomePage);
+        const wrapper = await mountLoaded(SwitchPage);
         const countAtStart = statusCount;
         await vi.waitFor(() => expect(statusCount).toBeGreaterThan(countAtStart), { timeout: 4000, interval: 100 });
         wrapper.unmount();

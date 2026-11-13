@@ -1,13 +1,14 @@
 {
     "common": {
+        "redirectingSwitch": "Apertura dell'interruttore...",
         "syncingDevice": "Lettura del dispositivo...",
         "loadErrorTitle": "Impossibile leggere il dispositivo",
         "loadErrorDescription": "Il dispositivo non risponde. Controlla che sia acceso e sulla stessa rete, poi riprova.",
         "loadRetryAction": "Riprova"
     },
     "nav": {
-        "home": {
-            "label": "Home",
+        "switch": {
+            "label": "Interruttore",
             "description": "Silenzia le telecamere per un po'"
         },
         "nvr": {
@@ -29,7 +30,7 @@
         }
     },
     "pages": {
-        "home": {
+        "switch": {
             "title": "Modalità silenziosa",
             "state": {
                 "idle": {
