@@ -12,8 +12,11 @@ export default defineNuxtConfig({
         // Global head configuration
         head: {
             title: 'Reolink Switch',
+
+            // Favicon and Apple icon (the logos are in public/images/logo)
             link: [
-                { rel: 'icon', type: 'image/svg+xml', href: '/logo.svg' }
+                { rel: 'icon', href: '/favicon.ico', sizes: 'any' },
+                { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' }
             ]
         },
 
