@@ -4,6 +4,10 @@ What changed in each release. New notes go under **Unreleased** while the work i
 
 ## Unreleased
 
+- The **Device** tab shows the address that opens the device (`gizmo-reolink-switch.local`). It showed the Wi-Fi's default name (`esp32s3-XXXXXX.local`), which doesn't open it.
+- The router lists the device by its name (`gizmo-reolink-switch`) instead of `esp32s3-XXXXXX`.
+- gizmo-common v2.5.2.
+
 ## v1.2.0 - 2026-11-13
 
 - A new Gizmo Reolink Switch logo, the slashed bell in the OpenGizmo style, as the favicon and the phone's home-screen icon, with a dark theme version in the header.
