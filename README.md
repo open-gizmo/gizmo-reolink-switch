@@ -249,12 +249,12 @@ The firmware is split into focused modules under `src/`:
 - 🔘 `button/` reads the physical button and emits semantic events.
 - 🔔 `buzzer/` drives audible feedback.
 - 📺 `display/` manages the LCD screens and layout.
-- 🔐 `nvr/` saves the NVR login set from the dashboard in NVS, and checks the login the dashboard sends.
+- 🔐 `nvr/` saves the NVR login set from the dashboard with `Preferences`, and checks the login the dashboard sends.
 - 🛰️ `remote/` hands the dashboard's NVR check to the main loop, and publishes what the switch is doing for the dashboard.
 - 🌐 `server/` serves the dashboard and its API, one file per endpoint.
 - ⏱️ `menu/` implements timer selection and countdown state.
 - 📡 `wifi/` runs the Wi-Fi setup hotspot and keeps the connection, with the shared gizmo-common library.
-- 💾 `storage/` saves the muted push and recording settings in NVS so a reboot can't leave the cameras muted.
+- 💾 `storage/` saves the muted push and recording settings with `Preferences` so a reboot can't leave the cameras muted.
 - 🧮 `channels/` keeps track of which setting is muted on which channel, from the answer to each NVR command.
 - 🎥 `reolink/` authenticates against the NVR and toggles notifications and recording.
 - 🧾 `serial/` turns development logs on in dev mode (logging itself comes from the shared [gizmo-common](https://github.com/open-gizmo/gizmo-common) library, like the `MM:SS` formatting).

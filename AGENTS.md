@@ -15,8 +15,8 @@ Gizmo Reolink Switch lets you leave home without triggering your own cameras: a 
 - `src/button`, `src/buzzer`, `src/display`: the button events, the sounds and the LCD screens.
 - `src/menu`: the timer selection and countdown.
 - `src/reolink`: logs in to the NVR and turns notifications and recording off and on.
-- `src/channels` and `src/storage`: which setting is muted on which channel, saved in NVS so a reboot can't leave the cameras muted.
-- `src/nvr`: the NVR login set from the web app, saved in NVS.
+- `src/channels` and `src/storage`: which setting is muted on which channel, saved with `Preferences` so a reboot can't leave the cameras muted.
+- `src/nvr`: the NVR login set from the web app, saved with `Preferences`.
 - `src/remote`: hands the web app's NVR check to the main loop, and publishes the switch's state for the web app.
 - `src/server`: the web app and its API, one file per endpoint (the Wi-Fi setup and device routes come from gizmo-common).
 - `src/wifi`, `src/config`, `src/serial`: the Wi-Fi setup names, the pins and timings, and the serial log.
