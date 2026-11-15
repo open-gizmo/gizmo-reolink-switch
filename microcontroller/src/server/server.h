@@ -19,7 +19,11 @@ void setupStatusGetRoute();
 void setupNvrGetRoute();
 void setupNvrPostRoute();
 void setupNvrTestPostRoute();
+void setupAgentGuideRoute();
 void setupWebAppRoute();
+
+// Send the guide for AI agents (Markdown)
+void sendAgentGuide(AsyncWebServerRequest *request);
 
 // Build the state the web app shows: the timer, the alerts and the NVR
 JsonDocument buildStatusData();

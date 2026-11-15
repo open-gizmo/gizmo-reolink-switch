@@ -4,6 +4,8 @@ What changed in each release. New notes go under **Unreleased** while the work i
 
 ## Unreleased
 
+- The switch describes itself to AI agents: a Markdown guide at `http://gizmo-reolink-switch.local/llms.txt` explains what it does and how to read its state, with its address filled in. It only reads: the quiet mode still starts and stops from the button only. Flash the new firmware to get it.
+
 ## v1.2.1 - 2026-11-14
 
 - The **Device** tab shows the address that opens the device (`gizmo-reolink-switch.local`). It showed the Wi-Fi's default name (`esp32s3-XXXXXX.local`), which doesn't open it.

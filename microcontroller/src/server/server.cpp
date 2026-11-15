@@ -39,6 +39,7 @@ void setupServer() {
 	setupNvrGetRoute();
 	setupNvrPostRoute();
 	setupNvrTestPostRoute();
+	setupAgentGuideRoute();
 	setupWebAppRoute();
 	server.begin();
 }

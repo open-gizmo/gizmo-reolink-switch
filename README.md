@@ -105,6 +105,7 @@ The device also provides:
 - Muted channels are saved in flash, so the cameras are restored even if the device reboots while they are muted.
 - Friendly 16x2 I2C LCD screens optimized for quick readability, including the setup steps.
 - Buzzer cues for selection, start, countdown warning, completion, and cancellation.
+- A Markdown guide for AI agents at `/llms.txt`, describing the switch and how to read its state, with its address filled in. Like the dashboard, it never controls the cameras.
 - A `debug` build profile with the serial log on (off in the released firmware).
 - Native tests for the firmware logic, and Vitest tests for the dashboard.
 
@@ -251,7 +252,8 @@ The firmware is split into focused modules under `src/`:
 - 📺 `display/` manages the LCD screens and layout.
 - 🔐 `nvr/` saves the NVR login set from the dashboard with `Preferences`, and checks the login the dashboard sends.
 - 🛰️ `remote/` hands the dashboard's NVR check to the main loop, and publishes what the switch is doing for the dashboard.
-- 🌐 `server/` serves the dashboard and its API, one file per endpoint.
+- 🌐 `server/` serves the dashboard and its API, one file per endpoint, and the guide for AI agents (`/llms.txt`).
+- 📖 `guide/` writes the Markdown guide for AI agents (`agent_guide.*`), hardware-free.
 - ⏱️ `menu/` implements timer selection and countdown state.
 - 📡 `wifi/` runs the Wi-Fi setup hotspot and keeps the connection, with the shared gizmo-common library.
 - 💾 `storage/` saves the muted push and recording settings with `Preferences` so a reboot can't leave the cameras muted.
@@ -313,7 +315,7 @@ The web app splits UI responsibilities between the shared packages and the app i
 - The gizmo-common web layer provides the dashboard layout, the Wi-Fi pages, the device card, and the mock device for the Wi-Fi and device routes.
 - `webapp/app/pages/switch.vue` is the switch page, `webapp/app/pages/nvr.vue` the NVR page, `webapp/app/pages/device.vue` holds the device card, and `webapp/app/app.config.ts` sets the name, logo and navigation for the layer.
 - `webapp/app/assets/css/main.css` imports the shared library and layer stylesheets.
-- `webapp/app/composables/` keeps the switch API calls (`useSwitchApi.js`), the status polling and the quiet-mode state local to the app.
+- `webapp/app/composables/` keeps the switch API calls (`useDeviceApi.js`), the status polling and the quiet-mode state local to the app.
 
 <a id="configuration"></a>
 ## ⚙️ Configuration
@@ -337,6 +339,10 @@ Every response has the OpenGizmo shape `{ errorId, errorMessage, data }`. Only r
 - `POST /api/nvr` saves a new login and checks it. An empty password keeps the saved one only for the same address and username: a new address or username needs the password again (`invalid_nvr_field`, `password`), so the saved one is never sent anywhere else. It's refused while cameras are muted, so they are always restored by the NVR that muted them.
 - `POST /api/nvr-test` checks the login again.
 - The Wi-Fi setup and device routes come from gizmo-common.
+
+### Guide for AI agents
+
+The switch describes itself in Markdown for agents that read before they connect: what it does, its HTTP API and tips, with the address the agent used already filled in. It is served at `/llms.txt`, at `/` to clients whose `Accept` header asks for `text/markdown` before `text/html` (browsers still get the web app), and every page of the web app links to it with `<link rel="alternate" type="text/markdown">`.
 
 ### Firmware Defaults
 
@@ -365,7 +371,7 @@ The switch is configured through its embedded web UI and local network flow.
 - `microcontroller/src/config/config.h` and `config.cpp` for the pins, timings and hardware constants.
 - `microcontroller/src/reolink/reolink.cpp` for the Reolink API calls.
 - `microcontroller/src/server/endpoints/` for the switch API, one file per endpoint.
-- `webapp/app/composables/useSwitchApi.js` for browser-to-device communication.
+- `webapp/app/composables/useDeviceApi.js` for browser-to-device communication.
 
 ### Releasing a new version
 

@@ -1,5 +1,5 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { getNvr, getStatus, saveNvr, testNvr } from '~/composables/useSwitchApi.js';
+import { getNvr, getStatus, saveNvr, testNvr } from '~/composables/useDeviceApi.js';
 import { computeRemainingSeconds, FAST_REFRESH_DURATION_MS, getStatusRefreshInterval } from '~/composables/useQuietMode.js';
 import { usePolling } from '~/composables/usePolling.js';
 import { useGlobalStore } from '~/composables/stores/useGlobalStore.js';

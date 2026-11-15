@@ -16,7 +16,10 @@ export default defineNuxtConfig({
             // Favicon and Apple icon (the logos are in public/images/logo)
             link: [
                 { rel: 'icon', href: '/favicon.ico', sizes: 'any' },
-                { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' }
+                { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' },
+
+                // Guide for AI agents, in the raw HTML (an agent that doesn't run the app still finds it)
+                { rel: 'alternate', type: 'text/markdown', href: '/llms.txt', title: 'Guide for AI agents' }
             ]
         },
 
