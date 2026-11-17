@@ -89,10 +89,11 @@ describe('locales', () => {
         expect([...errorIds].filter(errorId => !errorId.startsWith('mock_')).filter(errorId => !(`api.backendErrors.${errorId}` in englishTexts))).toEqual([]);
     });
 
-    // Every error the real firmware can send has a translation too, in the app or in the layer (checked when gizmo-common is downloaded: run "pio pkg install" in microcontroller/)
-    const root = join(process.cwd(), '..', 'microcontroller');
-    const libraryRoot = join(root, '.pio', 'libdeps', 'release', 'gizmo-common', 'src');
-    it.skipIf(!existsSync(libraryRoot))('translates every error ID of the firmware', () => {
+    // Every error the real firmware can send has a translation too, in the app or in the layer (gizmo-common must be downloaded: run "pio pkg install" in microcontroller/, or the test fails instead of skipping the check)
+    it('translates every error ID of the device', () => {
+        const root = join(process.cwd(), '..', 'microcontroller');
+        const libraryRoot = join(root, '.pio', 'libdeps', 'release', 'gizmo-common', 'src');
+        expect(existsSync(libraryRoot), 'gizmo-common is missing: run "pio pkg install" in microcontroller/ first').toBe(true);
         const files = [...readSourceFiles(join(root, 'src')).filter(file => !file.includes('webui')), ...readSourceFiles(libraryRoot)];
         const errorIds = new Set();
         for (const file of files.filter(file => /\.(cpp|h)$/.test(file))) {
