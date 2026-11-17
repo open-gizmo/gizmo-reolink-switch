@@ -5,6 +5,7 @@
 #include "button/button.h"
 #include "buzzer/buzzer.h"
 #include "display/display.h"
+#include "display/screens.h"
 #include "menu/menu.h"
 #include "nvr/nvr_settings.h"
 #include "reolink/reolink.h"
@@ -31,23 +32,8 @@ namespace {
 	// When the button was last polled (a long gap means the firmware was busy and didn't see the presses meanwhile)
 	uint32_t lastButtonPollTimeMs = 0;
 
-	// How to cancel, shown instead of the countdown for a moment after a short press while the timer runs
-	bool isCancelHintShown = false;
-	uint32_t cancelHintShownAtMs = 0;
-
-	// Factory reset with the BOOT button: the countdown while it's held, and the refusal while cameras are muted
-	bool isFactoryResetHeld = false;
-	uint32_t factoryResetRemainingMs = 0;
-	bool isFactoryResetRefusalShown = false;
-	uint32_t factoryResetRefusalShownAtMs = 0;
-
-	// Check whether the cancel hint should still be on screen
-	bool isCancelHintVisible() {
-		if (isCancelHintShown && millis() - cancelHintShownAtMs >= config::SHOW_DISPLAY_MESSAGE_MS) {
-			isCancelHintShown = false;
-		}
-		return isCancelHintShown;
-	}
+	// The screen shown on top of the normal one for a while (one at a time): how to cancel, shown instead of the countdown for a moment after a short press while the timer runs; the factory reset with the BOOT button: the countdown while it's held, and the refusal while cameras are muted; and the outcome of the last action
+	TemporaryScreenState temporaryScreen = {};
 
 	// Publish what the switch is doing for the web app (busy before slow work, so the web app waits instead of queuing more)
 	void publishStatus(bool isBusy) {
@@ -56,66 +42,29 @@ namespace {
 
 	// Print the current timer state to the serial console
 	void printMenuStatus() {
-		char timeBuffer[gizmo::DURATION_TEXT_SIZE] = { 0 };
-		char detailLine[sizeof("Mute for ") + gizmo::DURATION_TEXT_SIZE] = { 0 }; // Fits any duration (the LCD crops to its width, and a native test checks the real lines fit)
-
 		// Format the remaining time for display
 		printLogf("%s\n", getMenuDisplayText());
 
-		// While the BOOT button is held for a factory reset, count down (releasing it stops)
-		if (isFactoryResetHeld) {
-			char countdownLine[sizeof("Reset in 4294967s")] = { 0 }; // Fits any value (the LCD crops to its width; it never goes above 10)
-			snprintf(countdownLine, sizeof(countdownLine), "Reset in %lus", (unsigned long)((factoryResetRemainingMs + 999) / 1000));
-			displayShowScreen(countdownLine, "Release to stop");
-			return;
-		}
+		// Show the temporary screen, or the current timer state and the setup steps (display/screens.cpp)
+		const String address = isWiFiConnected() ? WiFi.localIP().toString() : String();
+		const SwitchScreenInputs inputs = {
+			isTimerRunning(),
+			getRemainingSeconds(),
+			getSelectedDurationSeconds(),
+			hasPendingReolinkRestore(),
+			isSetupHotspotActive(),
+			isNvrConfigured(getNvrSettings()),
+			isWiFiConnected() ? address.c_str() : nullptr,
+			config::ACCESS_POINT_NAME
+		};
+		const ScreenLines lines = buildScreenLines(temporaryScreen, inputs);
+		displayShowScreen(lines.title, lines.detail);
+	}
 
-		// For a moment after a refused factory reset, say why (the muted cameras must be restored first, with the saved login)
-		if (isFactoryResetRefusalShown && millis() - factoryResetRefusalShownAtMs < config::SHOW_DISPLAY_MESSAGE_MS) {
-			displayShowScreen("Can't reset now", isTimerRunning() ? "Stop timer first" : "Alerts still off");
-			return;
-		}
-
-		// Explain how to cancel for a moment after a short press (it doesn't change a running timer)
-		if (isTimerRunning() && isCancelHintVisible()) {
-			displayShowScreen("Alerts OFF", "Hold to cancel");
-			return;
-		}
-
-		// Show the current timer state on the LCD
-		if (isTimerRunning()) {
-			gizmo::formatDuration(getRemainingSeconds(), timeBuffer, sizeof(timeBuffer));
-			snprintf(detailLine, sizeof(detailLine), "%s left", timeBuffer);
-			displayShowScreen("Alerts OFF", detailLine);
-			return;
-		}
-
-		// Warn when some cameras could not be restored yet
-		if (getSelectedDurationSeconds() == 0 && hasPendingReolinkRestore()) {
-			displayShowScreen("Alerts Still OFF", "Hold to retry");
-			return;
-		}
-
-		// Show the setup steps when idle: join the hotspot to set the Wi-Fi, then set up the NVR from the web app
-		if (getSelectedDurationSeconds() == 0 && isSetupHotspotActive()) {
-			displayShowScreen("Join Wi-Fi Setup", config::ACCESS_POINT_NAME);
-			return;
-		}
-		if (getSelectedDurationSeconds() == 0 && !isNvrConfigured(getNvrSettings())) {
-			displayShowScreen("Set Up NVR: Open", isWiFiConnected() ? WiFi.localIP().toString().c_str() : "the web app");
-			return;
-		}
-
-		// Show the welcome screen when idle
-		if (getSelectedDurationSeconds() == 0) {
-			displayShowScreen("Reolink Switch", "Tap to start");
-			return;
-		}
-
-		// Show the selected duration when idle
-		gizmo::formatDuration(getSelectedDurationSeconds(), timeBuffer, sizeof(timeBuffer));
-		snprintf(detailLine, sizeof(detailLine), "Mute for %s", timeBuffer);
-		displayShowScreen("Hold to mute", detailLine);
+	// Show the outcome of an action for a moment (the loop goes back to the normal screen, without blocking)
+	void showOutcome(const char *title, const char *detail) {
+		showMessage(temporaryScreen, title, detail, millis());
+		printMenuStatus();
 	}
 
 	// Restore the muted cameras and show the real outcome on the LCD (background retries don't beep on failure)
@@ -131,14 +80,14 @@ namespace {
 			// All muted cameras are back on
 			case ReolinkRestoreResult::Restored:
 				printLogln("Alerts restored. Returning to idle state.");
-				displayShowScreen(successTitle, "Alerts restored!");
+				showOutcome(successTitle, "Alerts restored!");
 				singleBuzz(config::LONG_BUZZ_MS);
 				break;
 
 			// Some muted cameras are offline and will be restored when they come back
 			case ReolinkRestoreResult::PartiallyRestored:
 				printLogln("Some muted cameras are offline. Retrying later.");
-				displayShowScreen("Cam Offline!", "Will retry");
+				showOutcome("Cam Offline!", "Will retry");
 				if (!isBackgroundRetry) {
 					doubleBuzz(config::SHORT_BUZZ_MS);
 				}
@@ -148,16 +97,14 @@ namespace {
 			case ReolinkRestoreResult::Failed:
 			default:
 				printLogln("Failed to restore Reolink notifications and recording. Retrying later.");
-				displayShowScreen("Restore Failed", "Will retry");
+				showOutcome("Restore Failed", "Will retry");
 				if (!isBackgroundRetry) {
 					doubleBuzz(config::SHORT_BUZZ_MS);
 				}
 				break;
 		}
 
-		// Return to the idle screen
-		delay(config::SHOW_DISPLAY_MESSAGE_MS);
-		printMenuStatus();
+		// Return to the idle screen (the loop does it once the outcome has been shown, without blocking)
 	}
 
 	// Retry a pending restore in the background while the timer is idle
@@ -197,14 +144,11 @@ namespace {
 				if (muteResult == ReolinkMuteResult::Failed) {
 					printLogln("Failed to disable Reolink notifications and recording. Cancelling timer start.");
 					stopTimer();
-					displayShowScreen("Quiet Mode Fail!", "Try again!");
-					delay(config::SHOW_DISPLAY_MESSAGE_MS);
+					showOutcome("Quiet Mode Fail!", "Try again!");
 
-					// Restore any camera the failed request may have muted
+					// Restore any camera the failed request may have muted (the failure stays on screen during the restore, then its outcome replaces it)
 					if (hasPendingReolinkRestore()) {
 						restoreAlerts("Mute Cancelled");
-					} else {
-						printMenuStatus();
 					}
 					break;
 				}
@@ -261,8 +205,7 @@ namespace {
 			case ButtonEvent::ShortPress:
 				// A short press doesn't change a running timer, so show how to cancel it
 				if (isTimerRunning()) {
-					isCancelHintShown = true;
-					cancelHintShownAtMs = millis();
+					showCancelHint(temporaryScreen, millis());
 					printMenuStatus();
 					singleBuzz(config::SHORT_BUZZ_MS);
 					break;
@@ -315,14 +258,13 @@ namespace {
 
 	// Show the time left while the BOOT button is held
 	void handleFactoryResetHold(unsigned long remainingMs) {
-		isFactoryResetHeld = true;
-		factoryResetRemainingMs = remainingMs;
+		showFactoryResetCountdown(temporaryScreen, remainingMs, millis());
 		printMenuStatus();
 	}
 
 	// Go back to the normal screen when the button is released too early
 	void handleFactoryResetCancel() {
-		isFactoryResetHeld = false;
+		clearTemporaryScreen(temporaryScreen);
 		printMenuStatus();
 	}
 
@@ -333,23 +275,19 @@ namespace {
 
 	// Say why the reset was refused
 	void handleFactoryResetRefused() {
-		isFactoryResetHeld = false;
-		isFactoryResetRefusalShown = true;
-		factoryResetRefusalShownAtMs = millis();
+		showFactoryResetRefused(temporaryScreen, millis());
 		printMenuStatus();
 	}
 
 	// Forget the NVR login (gizmo-common forgets the Wi-Fi, then restarts into the setup hotspot)
 	void clearSwitchSettings() {
 		updateNvrSettings(NvrSettings {});
-		isFactoryResetHeld = false;
-		displayShowScreen("Factory reset", "Restarting...");
+		showOutcome("Factory reset", "Restarting...");
 	}
 
-	// Go back to the normal screen once the refusal has been shown
-	void manageFactoryResetScreen() {
-		if (isFactoryResetRefusalShown && millis() - factoryResetRefusalShownAtMs >= config::SHOW_DISPLAY_MESSAGE_MS) {
-			isFactoryResetRefusalShown = false;
+	// Go back to the normal screen once the refusal, the cancel hint or an outcome has been shown
+	void manageTemporaryScreen() {
+		if (expireTemporaryScreen(temporaryScreen, millis(), config::SHOW_DISPLAY_MESSAGE_MS)) {
 			printMenuStatus();
 		}
 	}
@@ -454,7 +392,7 @@ void loop() {
 	// Keep the Wi-Fi connection alive, and restart when the web app asks
 	manageWiFiConnection();
 	gizmo::manageDevice(); // Also watches the BOOT button for a factory reset
-	manageFactoryResetScreen();
+	manageTemporaryScreen();
 
 	// Apply a changed NVR login, and redraw the setup steps when they change
 	manageNvrLogin();
@@ -466,8 +404,8 @@ void loop() {
 		handleRemoteCommand(remoteCommand);
 	}
 
-	// Drop a press made while the firmware was busy since the last poll (the screen said to wait, and a late press would act on another screen)
-	if (millis() - lastButtonPollTimeMs >= config::BUTTON_BUSY_GAP_MS) {
+	// Drop a press made while the firmware was busy since the last poll (the screen said to wait, and a late press would act on another screen), or while an outcome is on screen
+	if (millis() - lastButtonPollTimeMs >= config::BUTTON_BUSY_GAP_MS || isMessageShown(temporaryScreen)) {
 		ignoreButtonUntilReleased();
 	}
 

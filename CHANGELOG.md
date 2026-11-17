@@ -4,6 +4,7 @@ What changed in each release. New notes go under **Unreleased** while the work i
 
 ## Unreleased
 
+- The switch no longer freezes for a second while it shows an outcome on the LCD ("Alerts restored!", "Quiet Mode Fail!"): the Wi-Fi and the status in the web app keep going, and the button is still ignored until the message goes. Flash the new firmware to get it.
 - The switch describes itself to AI agents: a Markdown guide at `http://gizmo-reolink-switch.local/llms.txt` explains what it does and how to read its state, with its address filled in. It only reads: the quiet mode still starts and stops from the button only. Flash the new firmware to get it.
 
 ## v1.2.1 - 2026-11-14

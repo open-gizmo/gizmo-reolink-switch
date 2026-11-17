@@ -249,7 +249,7 @@ The firmware is split into focused modules under `src/`:
 
 - 🔘 `button/` reads the physical button and emits semantic events.
 - 🔔 `buzzer/` drives audible feedback.
-- 📺 `display/` manages the LCD screens and layout.
+- 📺 `display/` manages the LCD screens and layout: `screens.*` picks what the LCD shows, the normal screen or a temporary one on top (the factory reset countdown, its refusal, the cancel hint, or an outcome), hardware-free and tested.
 - 🔐 `nvr/` saves the NVR login set from the dashboard with `Preferences`, and checks the login the dashboard sends.
 - 🛰️ `remote/` hands the dashboard's NVR check to the main loop, and publishes what the switch is doing for the dashboard.
 - 🌐 `server/` serves the dashboard and its API, one file per endpoint, and the guide for AI agents (`/llms.txt`).
@@ -285,7 +285,7 @@ cd microcontroller
 pio test -e native
 ```
 
-The tests live in [microcontroller/test/](microcontroller/test/). They build the logic modules against a small fake `Arduino.h` ([test/stubs/Arduino.h](microcontroller/test/stubs/Arduino.h)) whose `millis()` is a clock the tests control, so they can fast-forward the timer and even cross a `millis()` rollover instantly. They also cover the checks of the NVR login and of the dashboard commands.
+The tests live in [microcontroller/test/](microcontroller/test/). They build the logic modules against a small fake `Arduino.h` ([test/stubs/Arduino.h](microcontroller/test/stubs/Arduino.h)) whose `millis()` is a clock the tests control, so they can fast-forward the timer and even cross a `millis()` rollover instantly. They also cover the checks of the NVR login and of the dashboard commands, and which screen the LCD shows (the normal ones, and the temporary screens on top with how long they stay).
 
 The web app has its own tests (its pages, the mock switch API and the translations), with Vitest:
 
