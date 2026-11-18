@@ -1,6 +1,6 @@
 {
 	"name": "gizmo-reolink-switch",
-	"version": "1.2.1",
+	"version": "1.3.0",
 	"description": "Gizmo Reolink Switch web app, the dashboard embedded in the ESP32 firmware.",
 	"homepage": "https://github.com/open-gizmo/gizmo-reolink-switch",
 	"bugs": {
