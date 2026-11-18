@@ -40,6 +40,6 @@ void setupServer() {
 	setupNvrPostRoute();
 	setupNvrTestPostRoute();
 	setupAgentGuideRoute();
-	setupWebAppRoute();
+	setupCaptivePortalRoute();
 	server.begin();
 }

@@ -11,12 +11,10 @@ Gizmo Reolink Switch is a small ESP32 project that lets you temporarily mute Reo
 </p>
 
 <p>
-  <img alt="ESP32" src="https://img.shields.io/badge/esp32-ESP32-E7352C?logo=espressif&logoColor=white">
+  <a href="https://github.com/open-gizmo/gizmo-reolink-switch"><img alt="GitHub Repo" src="https://img.shields.io/badge/github-open--gizmo%2Fgizmo--reolink--switch-111111?logo=github"></a>
+  <img alt="ESP32-S3" src="https://img.shields.io/badge/esp32-ESP32--S3-E7352C?logo=espressif&logoColor=white">
   <img alt="PlatformIO" src="https://img.shields.io/badge/platformio-PlatformIO-FF6B35?logo=platformio&logoColor=white">
-  <img alt="Arduino" src="https://img.shields.io/badge/framework-Arduino-00979D?logo=arduino&logoColor=white">
   <img alt="Nuxt 4" src="https://img.shields.io/badge/nuxt-4-00DC82?logo=nuxt&logoColor=white">
-  <img alt="Reolink" src="https://img.shields.io/badge/integration-Reolink-2563EB">
-  <img alt="LCD 16x2" src="https://img.shields.io/badge/display-16x2%20I2C%20LCD-0F766E">
   <img alt="License MIT" src="https://img.shields.io/badge/license-MIT-2563EB">
 </p>
 

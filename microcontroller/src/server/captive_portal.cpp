@@ -15,7 +15,7 @@ namespace {
 }
 
 // Serve the web app for every request no route answered
-void setupWebAppRoute() {
+void setupCaptivePortalRoute() {
 	server.onNotFound([](AsyncWebServerRequest *request) {
 		// Redirect hotspot clients to the Wi-Fi setup page
 		if (gizmo::handleCaptivePortalRequest(request)) {

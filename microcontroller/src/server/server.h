@@ -20,7 +20,7 @@ void setupNvrGetRoute();
 void setupNvrPostRoute();
 void setupNvrTestPostRoute();
 void setupAgentGuideRoute();
-void setupWebAppRoute();
+void setupCaptivePortalRoute();
 
 // Send the guide for AI agents (Markdown)
 void sendAgentGuide(AsyncWebServerRequest *request);
