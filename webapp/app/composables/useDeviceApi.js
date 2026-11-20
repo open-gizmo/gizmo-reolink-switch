@@ -3,13 +3,13 @@
 // Fetch the status: the timer, the alerts and the NVR connection
 export const getStatus = async () => {
     const response = await fetchEsp('/api/status', { retry: 0 });
-    return response.data || {};
+    return readData(response);
 };
 
 // Fetch the NVR login (without the password)
 export const getNvr = async () => {
     const response = await fetchEsp('/api/nvr', { retry: 0 });
-    return response.data || {};
+    return readData(response);
 };
 
 // Save the NVR login ({ host, username, password }, an empty password keeps the saved one only if the address and the username are unchanged) and get the login as the device kept it
@@ -22,11 +22,11 @@ export const saveNvr = async login => {
     });
 
     // Return the saved login
-    return response.data || {};
+    return readData(response);
 };
 
 // Ask the device to log in to the NVR and count the online cameras, and get the status (busy until the test is done)
 export const testNvr = async () => {
     const response = await fetchEsp('/api/nvr-test', { method: 'POST', retry: 0 });
-    return response.data || {};
+    return readData(response);
 };
