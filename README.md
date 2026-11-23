@@ -46,7 +46,7 @@ The firmware runs on an ESP32 and gives you a compact standalone interface:
 
 - Short press the button to choose a mute duration.
 - Long press to start the countdown. A short press while it runs shows how to cancel it.
-- The ESP32 connects to WiFi and tells the Reolink NVR to disable notifications and recording on active channels.
+- The ESP32 connects to Wi-Fi and tells the Reolink NVR to disable notifications and recording on active channels.
 - When the timer finishes, or when you cancel it, the firmware turns notifications and recording back on for the channels it muted.
 
 The quiet mode is only controlled from the button, on purpose: nobody can mute your cameras without being at the switch. The web dashboard on the device sets it up (the Wi-Fi and the NVR login) and shows its status and the countdown, but can't start, cancel or retry the quiet mode.
@@ -72,12 +72,12 @@ The device also provides:
 				<img src="docs/screenshot-nvr.png" alt="NVR screen" width="180">
 			</td>
 			<td align="center" valign="top">
-				<img src="docs/screenshot-wifi.png" alt="WiFi setup screen" width="180">
+				<img src="docs/screenshot-wifi.png" alt="Wi-Fi setup screen" width="180">
 			</td>
 		</tr>
 	</table>
 	<p>
-		<sub>Switch, NVR, and WiFi setup screens (the web app's development server, with a mock switch)</sub>
+		<sub>Switch, NVR, and Wi-Fi setup screens (the web app's development server, with a mock switch)</sub>
 	</p>
 </div>
 
@@ -301,7 +301,7 @@ The dashboard lives in `webapp/`. It's a Nuxt 4 app on the shared gizmo-common w
 - **Switch**: the state of the alerts, the countdown, and what the button does. It only shows the status: the quiet mode starts and stops with the button on the switch.
 - **NVR**: the address and login of the NVR, and the connection check.
 - **Device**: the device details, with restart and forget network.
-- **WiFi**: change the network, and the setup page the hotspot opens.
+- **Wi-Fi**: change the network, and the setup page the hotspot opens.
 
 `npm run dev` starts it with a mock server that behaves like the switch, so you can work on it without a board.
 
