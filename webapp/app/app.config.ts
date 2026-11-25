@@ -5,7 +5,7 @@ import ToggleOnIcon from '@hugeicons/core-free-icons/ToggleOnIcon';
 // Name, logo and pages of the app, read by the layout and the pages of the gizmo-common layer
 export default defineAppConfig({
     gizmo: {
-        name: 'Reolink Switch',
+        name: 'Gizmo Reolink Switch',
 
         // mDNS name of the firmware (http://gizmo-reolink-switch.local)
         hostname: 'gizmo-reolink-switch',
