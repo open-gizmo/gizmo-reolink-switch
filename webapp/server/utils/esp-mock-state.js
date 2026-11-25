@@ -53,7 +53,7 @@ const createSwitchState = () => {
 };
 
 // Get the state of the switch, kept in the mock device state of the layer (Wi-Fi, uptime, kept across hot reloads)
-export const getSwitchMockState = () => {
+export const getEspMockState = () => {
     const gizmoState = getGizmoMockState();
     gizmoState.switch ??= createSwitchState();
     return gizmoState.switch;

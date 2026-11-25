@@ -77,6 +77,11 @@ describe('locales', () => {
         expect(keys.filter(key => !(key in englishTexts))).toEqual([]);
     });
 
+    // The app keeps the layer's texts as they are (it only adds its own), so a gizmo key here would be a typo or a stale override
+    it('adds no gizmo texts the layer does not have', () => {
+        expect(Object.keys(englishTexts).filter(key => key.startsWith('gizmo.') && !(key in layerTexts))).toEqual([]);
+    });
+
     // Every error the mock device sends has a translation, except its own mock_ ones that the real device never sends (otherwise the dialog shows the raw message, like "brightness")
     it('translates every error ID of the mock device', () => {
         const errorIds = new Set();
