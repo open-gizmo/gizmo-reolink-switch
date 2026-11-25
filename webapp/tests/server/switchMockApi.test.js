@@ -9,7 +9,7 @@ import { createEvent } from 'h3';
 vi.hoisted(() => {
     globalThis.defineEventHandler = handler => handler;
     globalThis.defineNitroPlugin = plugin => plugin;
-    globalThis.useAppConfig = () => ({ gizmo: { name: 'Reolink Switch' } });
+    globalThis.useAppConfig = () => ({ gizmo: { name: 'Gizmo Reolink Switch' } });
 });
 
 // Load the handlers of the mock device API
@@ -104,7 +104,7 @@ describe('mock device responses', () => {
     // The device card of the layer shows the name of the mock device
     it('names the mock device like the app', () => {
         nameMockDevice();
-        expect(buildDevicePayload({ state: getGizmoMockState() }).name).toBe('Reolink Switch');
+        expect(buildDevicePayload({ state: getGizmoMockState() }).name).toBe('Gizmo Reolink Switch');
     });
 });
 

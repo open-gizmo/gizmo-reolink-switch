@@ -11,7 +11,7 @@ export default defineNuxtConfig({
     app: {
         // Global head configuration
         head: {
-            title: 'Reolink Switch',
+            title: 'Gizmo Reolink Switch',
 
             // Favicon and Apple icon (the logos are in public/images/logo)
             link: [
