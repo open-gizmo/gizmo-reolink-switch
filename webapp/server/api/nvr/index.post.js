@@ -1,5 +1,5 @@
 import { EspMockError, createSuccessResponse, handleEspMockError, readMockJsonBody } from 'gizmo-common/web/server/utils/gizmo-mock.js';
-import { advanceSwitchState, applyNvrBody, buildNvrPayload, getSwitchMockState, saveNvr, submitMockCommand } from '~~/server/utils/switch-mock-state.js';
+import { advanceSwitchState, applyNvrBody, buildNvrPayload, getEspMockState, saveNvr, submitMockCommand } from '~~/server/utils/esp-mock-state.js';
 
 export default defineEventHandler(async event => {
     try {
@@ -7,7 +7,7 @@ export default defineEventHandler(async event => {
         const body = await readMockJsonBody(event);
 
         // Refuse while the cameras are muted (they were muted on the saved NVR, which must restore them)
-        const state = getSwitchMockState();
+        const state = getEspMockState();
         advanceSwitchState({ state });
         if (state.isTimerRunning || state.hasPendingRestore) {
             throw new EspMockError(409, 'nvr_change_while_muted', 'nvr_change_while_muted');

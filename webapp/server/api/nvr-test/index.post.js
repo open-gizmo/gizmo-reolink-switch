@@ -1,11 +1,11 @@
 import { setResponseStatus } from 'h3';
 import { EspMockError, createSuccessResponse, handleEspMockError } from 'gizmo-common/web/server/utils/gizmo-mock.js';
-import { advanceSwitchState, buildStatusPayload, getSwitchMockState, isNvrConfigured, submitMockCommand } from '~~/server/utils/switch-mock-state.js';
+import { advanceSwitchState, buildStatusPayload, getEspMockState, isNvrConfigured, submitMockCommand } from '~~/server/utils/esp-mock-state.js';
 
 export default defineEventHandler(async event => {
     try {
         // Move the device forward in time
-        const state = getSwitchMockState();
+        const state = getEspMockState();
         advanceSwitchState({ state });
 
         // Nothing to test without a login

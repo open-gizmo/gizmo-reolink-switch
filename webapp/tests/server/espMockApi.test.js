@@ -18,7 +18,7 @@ const { default: getNvr } = await import('../../server/api/nvr/index.get.js');
 const { default: postNvr } = await import('../../server/api/nvr/index.post.js');
 const { default: postNvrTest } = await import('../../server/api/nvr-test/index.post.js');
 const { default: nameMockDevice } = await import('../../server/plugins/gizmo-mock.js');
-const { BUSY_DURATION_MS, LOGIN_PAUSE_MS, MOCK_CAMERA_COUNT, MOCK_RUNNING_MINUTES, getSwitchMockState, readHost } = await import('../../server/utils/switch-mock-state.js');
+const { BUSY_DURATION_MS, LOGIN_PAUSE_MS, MOCK_CAMERA_COUNT, MOCK_RUNNING_MINUTES, getEspMockState, readHost } = await import('../../server/utils/esp-mock-state.js');
 const { buildDevicePayload, getGizmoMockState, resetGizmoMockState } = await import('gizmo-common/web/server/utils/gizmo-mock.js');
 
 // Build a real h3 request event, with a JSON body when one is given (a string is sent as it is)
@@ -46,14 +46,14 @@ const finishBusyTime = () => vi.advanceTimersByTime(BUSY_DURATION_MS + 10);
 
 // Put the device in a state: the login of its NVR, without anything running
 const setNvr = ({ host = '192.168.1.10', username = 'admin', password = 'secret' }) => {
-    const state = getSwitchMockState();
+    const state = getEspMockState();
     state.nvr = { host, username, password };
     state.nvrStatus = host && username && password ? 'connected' : 'not_configured';
 };
 
 // Put the device in a state with a timer running for some minutes (only the button of the device starts it)
 const startTimer = minutes => {
-    const state = getSwitchMockState();
+    const state = getEspMockState();
     state.isTimerRunning = true;
     state.selectedSeconds = minutes * 60;
     state.timerEndsAt = Date.now() + (minutes * 60 * 1000);
@@ -245,14 +245,14 @@ describe('mock NVR validation', () => {
         const { statusCode, response } = await sendNvr({ host: '192.168.1.10', username: 'admin', password });
         expect(statusCode).toBe(200);
         expect(response.data).toEqual({ host: '192.168.1.10', username: 'admin', hasPassword: true, configured: true });
-        expect(getSwitchMockState().nvr.password).toBe('secret');
+        expect(getEspMockState().nvr.password).toBe('secret');
     });
 
     // The scheme and the slashes of the address do not make it a different NVR
     it('keeps the saved password when the address only differs by the scheme', async () => {
         const { statusCode } = await sendNvr({ host: 'http://192.168.1.10/', username: 'admin', password: '' });
         expect(statusCode).toBe(200);
-        expect(getSwitchMockState().nvr.password).toBe('secret');
+        expect(getEspMockState().nvr.password).toBe('secret');
     });
 
     // The saved password only works for the NVR it was entered for: a new address or username needs a new one, and nothing is saved without it
@@ -273,13 +273,13 @@ describe('mock NVR validation', () => {
         const { statusCode, response } = await sendNvr({ host: '192.168.1.11', username: 'root', password: 'fresh' });
         expect(statusCode).toBe(200);
         expect(response.data).toEqual({ host: '192.168.1.11', username: 'root', hasPassword: true, configured: true });
-        expect(getSwitchMockState().nvr.password).toBe('fresh');
+        expect(getEspMockState().nvr.password).toBe('fresh');
     });
 
     // A new password replaces it
     it('saves a new password', async () => {
         await sendNvr({ host: '192.168.1.10', username: 'admin', password: 'fresh' });
-        expect(getSwitchMockState().nvr.password).toBe('fresh');
+        expect(getEspMockState().nvr.password).toBe('fresh');
     });
 
     // A login needs a password, saved or new
@@ -306,14 +306,14 @@ describe('mock NVR validation', () => {
 
     // The alerts still off need the saved NVR too
     it('refuses a change while the alerts are still off', async () => {
-        getSwitchMockState().hasPendingRestore = true;
+        getEspMockState().hasPendingRestore = true;
         const { response } = await sendNvr({ host: '192.168.1.10', username: 'admin', password: 'x' });
         expect(response.errorId).toBe('nvr_change_while_muted');
     });
 
     // A device that can't write its flash answers 500
     it('answers 500 when the login can not be saved', async () => {
-        getSwitchMockState().isNvrSaveFailing = true;
+        getEspMockState().isNvrSaveFailing = true;
         const { statusCode, response } = await sendNvr({ host: '192.168.1.10', username: 'admin', password: 'x' });
         expect([statusCode, response.errorId]).toEqual([500, 'nvr_save_failed']);
     });
